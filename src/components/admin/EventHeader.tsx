@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cx } from "@/components/ui/primitives";
+import { publicSiteUrl } from "@/lib/site-url";
 import { eventOperation } from "@/server/admin/events";
 import type { AdminEvent } from "@/server/admin/queries";
 import { eventWhen } from "@/components/events/format";
@@ -33,7 +34,7 @@ export function EventHeader({ event, active, done }: { event: AdminEvent; active
         </div>
         <div className="flex flex-wrap items-start gap-2">
           {event.status === "published" && !archived
-            ? <a href={`/events/${event.slug}`} target="_blank" rel="noopener" className={smallButton("secondary")}>View live ↗</a>
+            ? <a href={publicSiteUrl(`/events/${event.slug}`)} target="_blank" rel="noopener" className={smallButton("secondary")}>View live ↗</a>
             : <Link href={`${base}/preview`} className={smallButton("secondary")}>Preview</Link>}
           {!archived && event.status === "draft" && <OpButton action={eventOperation} fields={{ ...f, op: "publish" }} label="Publish" variant="primary" pendingLabel="Publishing…" />}
           {!archived && event.status === "published" && (

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { signOut } from "@/server/auth/actions";
 import type { Staff } from "@/server/auth/staff";
+import { publicSiteUrl } from "@/lib/site-url";
 import { AdminMobileNav, AdminSideNav } from "./AdminNav";
 import { ADMIN_NAV, ROLE_LABEL } from "./nav";
 
@@ -23,7 +24,7 @@ function UserBox({ staff }: { staff: Staff }) {
         <p className="text-xs text-pp-muted">{ROLE_LABEL[staff.role]}</p>
       </div>
       <div className="flex flex-wrap gap-3">
-        <Link href="/" className="text-xs text-pp-cream/75 underline-offset-4 hover:underline">View site</Link>
+        <a href={publicSiteUrl("/")} className="text-xs text-pp-cream/75 underline-offset-4 hover:underline">View site</a>
         <form action={signOut}>
           <button type="submit" className="text-xs text-pp-cream/75 underline-offset-4 hover:underline">Sign out</button>
         </form>
