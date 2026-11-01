@@ -12,7 +12,7 @@ function Blocks({ blocks, lead = false }: { blocks: PolicyBlock[]; lead?: boolea
 }
 
 /** A policy edited in the dashboard (plain text, never rendered as HTML). */
-export function PolicyPage({ policy }: { policy: StoredPolicy }) {
+export function PolicyPage({ policy }: { policy: Pick<StoredPolicy, "title" | "text" | "updated"> }) {
   const content = parsePolicyText(policy.text);
   return (
     <>

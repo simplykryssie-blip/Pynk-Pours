@@ -1,12 +1,15 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { staffForAction, type StaffRole } from "../auth/staff";
 import { hashCredential, isWellFormedCredential } from "../credentials";
+import { contactReplyEmail } from "@/lib/email-templates";
+import { emailConfigured, sendEmail } from "../email/resend";
 import { serviceDb } from "../supabase";
-import { dbMessage, invalid, isUuid, type ActionState } from "./common";
+import { dbMessage, formValues, invalid, isUuid, type ActionState } from "./common";
 
 // ---------------------------------------------------------------- attendees
 const attendeeSchema = z.object({
@@ -161,4 +164,46 @@ export async function markMessage(form: FormData): Promise<void> {
   if (!isUuid(id) || !["new", "handled", "spam"].includes(String(status))) return;
   await staff.db.from("contact_submissions").update({ status, handled_at: status === "new" ? null : new Date().toISOString() }).eq("id", id);
   revalidatePath("/admin/inbox");
+}
+
+// ---------------------------------------------------------------- inbox replies
+const replySchema = z.object({
+  id: z.string().refine(isUuid, "Invalid request."),
+  body: z.string().trim().min(1, "Write your reply.").max(10000, "Keep the reply under 10,000 characters."),
+});
+
+/** Owner/admin: email a reply to a contact-form message and keep it on the message. */
+export async function replyToMessage(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const staff = await staffForAction(["owner", "admin"]);
+  if ("error" in staff) return { status: "error", message: staff.error };
+  const parsed = replySchema.safeParse(Object.fromEntries(form));
+  if (!parsed.success) return invalid(parsed.error, form);
+  if (!emailConfigured()) return { status: "error", message: "Email isn't set up on this site yet, so replies can't be sent. Use the email link instead.", values: formValues(form) };
+  const { id, body } = parsed.data;
+  const { data: m, error } = await staff.db.from("contact_submissions")
+    .select("id, name, email, subject, message, created_at").eq("id", id).maybeSingle();
+  if (error || !m) return { status: "error", message: "That message no longer exists." };
+
+  const inbox = process.env.EMAIL_REPLY_TO || process.env.CONTACT_INBOX_EMAIL || "hello@pynkpours.com";
+  const content = contactReplyEmail({
+    name: m.name, subject: m.subject, reply: body, originalMessage: m.message, replyTo: inbox,
+    sentAt: new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "America/Chicago" }).format(new Date(m.created_at)),
+  });
+  let providerId: string;
+  try {
+    ({ id: providerId } = await sendEmail({
+      from: process.env.EMAIL_FROM!, to: m.email, replyTo: inbox, ...content,
+      idempotencyKey: `pynkpours:contact-reply:${id}:${createHash("sha256").update(body).digest("hex").slice(0, 32)}`,
+    }));
+  } catch (e) {
+    console.error("[inbox] reply failed", (e as Error).message);
+    return { status: "error", message: "The reply couldn't be sent. Please try again in a minute.", values: formValues(form) };
+  }
+  const { error: saveError } = await staff.db.from("contact_replies")
+    .insert({ submission_id: id, body, sent_by: staff.user.id, provider_message_id: providerId });
+  if (saveError) console.error("[inbox] reply sent but not recorded", saveError.message);
+  await staff.db.from("contact_submissions").update({ status: "handled", handled_at: new Date().toISOString() }).eq("id", id);
+  revalidatePath("/admin/inbox");
+  // Replied messages count as handled, so show them under "All" with a confirmation.
+  redirect(`/admin/inbox?show=all&replied=${id}#message-${id}`);
 }

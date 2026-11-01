@@ -143,7 +143,7 @@ test("email cron endpoint requires the CRON_SECRET bearer token", async ({ reque
   expect(await ok.json()).toMatchObject({ sent: expect.any(Number), failed: 0 });
 });
 
-test("a contact form message notifies the PynkPours inbox, with reply-to set to the sender", async ({ page }) => {
+test("a contact form message notifies the PynkPours inbox, and the owner replies from the dashboard", async ({ page }) => {
   const tag = randomUUID().slice(0, 8);
   await page.goto("/contact");
   const main = page.getByRole("main");
@@ -157,4 +157,24 @@ test("a contact form message notifies the PynkPours inbox, with reply-to set to 
   const m = (await inbox("inbox@pynkpours.test")).find((x) => x.text.includes(tag))!;
   expect(m.reply_to).toEqual([`contact-${tag}@example.test`]);
   expect(m.subject).toContain(`Contact ${tag}`);
+
+  // The owner answers from the dashboard Inbox; the guest receives it by email.
+  await asStaff(page, "owner");
+  await page.goto("/admin/inbox");
+  const card = page.getByRole("listitem").filter({ hasText: `Hello from the e2e test ${tag}` });
+  await card.getByRole("button", { name: "Reply" }).click();
+  await card.getByLabel(`Reply to Contact ${tag}`).fill(`Thanks for writing, ${tag}! See you soon.`);
+  await card.getByRole("button", { name: "Send reply" }).click();
+  await expect(page).toHaveURL(/\/admin\/inbox\?show=all&replied=/);
+  await expect(page.getByText(`Reply sent to contact-${tag}@example.test. The message is marked handled.`)).toBeVisible();
+  await expect.poll(async () => (await inbox(`contact-${tag}@example.test`)).length, { timeout: 10_000 }).toBe(1);
+  const [reply] = await inbox(`contact-${tag}@example.test`);
+  expect(reply.subject).toBe("Re: Your message to PynkPours");
+  expect(reply.from).toBe("PynkPours <tickets@pynkpours.test>");
+  expect(reply.text).toContain(`Thanks for writing, ${tag}! See you soon.`);
+  expect(reply.text).toContain(`> Hello from the e2e test ${tag}`);
+  // The reply is kept on the message, which is marked handled (so it leaves "New").
+  const after = page.getByRole("listitem").filter({ hasText: `Hello from the e2e test ${tag}` });
+  await expect(after.getByTestId("sent-reply")).toContainText(`Thanks for writing, ${tag}!`);
+  await expect(after).toContainText("handled");
 });

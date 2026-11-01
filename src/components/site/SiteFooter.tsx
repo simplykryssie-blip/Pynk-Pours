@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cacheLife } from "next/cache";
 import { brand, contactDetails, home, nav } from "@/content/site";
+import { listPublishedPages } from "@/server/data/pages";
 import { NewsletterForm } from "@/components/forms/NewsletterForm";
 import { Container, Eyebrow } from "@/components/ui/primitives";
 import { Logo } from "./Logo";
@@ -41,6 +42,7 @@ export function SiteFooter() {
             <li><Link href="/privacy" className="hover:text-pp-pink">Privacy</Link></li>
             <li><Link href="/terms" className="hover:text-pp-pink">Terms</Link></li>
             <li><Link href="/refunds" className="hover:text-pp-pink">Refund policy</Link></li>
+            <FooterPages />
           </ul>
         </Container>
       </div>
@@ -52,4 +54,12 @@ async function CopyrightYear() {
   "use cache";
   cacheLife("days");
   return <>{new Date().getUTCFullYear()}</>;
+}
+
+/** Custom pages the owner chose to show in the footer. */
+async function FooterPages() {
+  const pages = (await listPublishedPages()).filter((p) => p.showInFooter);
+  return pages.map((p) => (
+    <li key={p.slug}><Link href={`/policies/${p.slug}`} className="hover:text-pp-pink">{p.title}</Link></li>
+  ));
 }

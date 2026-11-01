@@ -123,3 +123,27 @@ ${button(i.inboxUrl, "Open the inbox")}`;
   const text = [`From: ${i.name} <${i.email}>`, i.subject ? `Subject: ${i.subject}` : "", "", i.message, "", `Inbox: ${i.inboxUrl}`].join("\n");
   return { subject: `${BRAND}: ${title}`, html: shell(title, inner, "Sent by the contact form on pynkpours.com."), text };
 }
+
+export interface ContactReplyInput {
+  name: string;
+  subject: string | null;
+  reply: string;
+  originalMessage: string;
+  sentAt: string;
+  replyTo: string;
+}
+
+/** A reply written in the dashboard Inbox, with the guest's original message quoted below. */
+export function contactReplyEmail(i: ContactReplyInput): EmailContent {
+  const first = i.name.split(/\s+/)[0] || i.name;
+  const subject = `Re: ${i.subject?.trim() || "Your message to PynkPours"}`;
+  const inner = `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;">Hi ${esc(first)},</p>
+<div style="font-size:15px;line-height:1.6;white-space:pre-wrap;">${esc(i.reply)}</div>
+<p style="margin:16px 0 0;font-size:15px;line-height:1.6;">PynkPours</p>
+<div style="margin:20px 0 0;padding:10px 14px;border-left:3px solid #e6d6dd;color:#6b5a62;font-size:13px;line-height:1.5;">
+<div style="margin-bottom:4px;">On ${esc(i.sentAt)}, you wrote:</div>
+<div style="white-space:pre-wrap;">${esc(i.originalMessage)}</div></div>`;
+  const quoted = i.originalMessage.split("\n").map((l) => `> ${l}`).join("\n");
+  const text = [`Hi ${first},`, "", i.reply, "", "PynkPours", "", `On ${i.sentAt}, you wrote:`, quoted].join("\n");
+  return { subject, html: shell(subject, inner, footerText(i.replyTo)), text };
+}

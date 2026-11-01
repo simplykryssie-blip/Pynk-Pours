@@ -459,3 +459,20 @@ Environment changes only take effect in a **new session**. The prepared run, `sc
 
 ### Preview note
 The preview Vercel project has no `RESEND_API_KEY` or `EMAIL_FROM`. Emails there stay queued (nothing is sent) until those are added. Production has them.
+
+## Custom pages and Inbox replies (2026-11-01)
+
+**Custom pages (owner request: "a button where I can add a policy").** Dashboard → Policies → **+ New page**. Each page has a title, a web address (`/policies/<address>`, suggested from the title), the same plain-text format as the built-in policies, **Published** (untick to hide; the page is kept), **Show a link in the site footer**, and a footer order. Pages can be deleted (with a confirmation). Published pages appear in the sitemap.
+- Database (migration 1100 `custom_pages`): visitors can read published pages only. MFA-verified owners/admins can read drafts and create, edit and delete; edits are attributed to the editor; every change is in the activity log. Addresses must be unique, lowercase words and dashes.
+- Tests: 4 database tests (visibility, write permissions, address rules, hide/delete plus audit trail) and a browser test (create → live page and footer link → duplicate address refused → hide → gone from site and footer → delete → activity log).
+
+**Inbox replies (owner feedback: test contact message had no way to reply).** Each message in Dashboard → Inbox now has **Reply**. The reply is emailed to the sender from `EMAIL_FROM`, with reply-to set to the PynkPours inbox and their original message quoted underneath. It's kept on the message ("You replied · date"), and the message is marked handled.
+- Database (migration 1200 `contact_replies`): owners/admins only; replies are a permanent record (no edits or deletes); audited.
+- Tests: unit test for the reply email (escaping, quoting, "Re:" subject); the browser test now sends a contact message, replies from the Inbox, and checks the email the guest receives.
+
+Both migrations were applied to the production and preview databases with Supabase MCP `apply_migration` before the code was deployed. The security advisor shows no new findings.
+
+**Totals (local):** 217 unit/database, 18 integration, 155 browser tests passed, 0 failed.
+
+### Owner decisions recorded
+- **Newsletters** (to be built after the form builder): send to newsletter sign-ups, past buyers and guests, event interest/waitlist lists, and uploaded contacts, **only where the person has given marketing permission**. Buyers will get an opt-in checkbox at checkout. Every newsletter will carry an unsubscribe link and the PynkPours mailing address (US CAN-SPAM).

@@ -131,10 +131,73 @@ test.describe("policies", () => {
     }
   });
 
+  test("owner adds a page, publishes it with a footer link, hides it, then deletes it", async ({ page, isMobile }) => {
+    desktopOnly(isMobile);
+    const tag = randomUUID().slice(0, 6);
+    const title = `Code of Conduct ${tag}`;
+    const slug = `code-of-conduct-${tag}`;
+    try {
+      await asStaff(page, "owner");
+      await page.goto("/admin/policies");
+      await page.getByRole("link", { name: "+ New page" }).click();
+      await expect(page.getByRole("heading", { level: 1, name: "New page" })).toBeVisible();
+      await page.getByRole("textbox", { name: /^Page title/ }).fill(title);
+      await expect(page.getByRole("textbox", { name: /^Web address/ })).toHaveValue(slug); // suggested from the title
+      await page.getByRole("textbox", { name: /^Page text/ }).fill(`Be kind ${tag}.\n\n## At our events\n- Respect every guest`);
+      await page.getByRole("checkbox", { name: "Published (visible on the website)" }).check();
+      await page.getByRole("button", { name: "Create page" }).click();
+      await expect(page.getByText("Page created and published.")).toBeVisible();
+      expect(await seriousViolations(page)).toEqual([]);
+
+      await page.goto(`/policies/${slug}`);
+      await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: "1. At our events" })).toBeVisible();
+      await expect(page.getByRole("contentinfo").getByRole("link", { name: title })).toHaveAttribute("href", `/policies/${slug}`);
+
+      // A second page can't take the same address.
+      await page.goto("/admin/policies/new");
+      await expect(page.getByRole("heading", { level: 1, name: "New page" })).toBeVisible();
+      await page.getByRole("textbox", { name: /^Page title/ }).fill("Duplicate");
+      await page.getByRole("textbox", { name: /^Web address/ }).fill(slug);
+      await page.getByRole("textbox", { name: /^Page text/ }).fill("Duplicate body.");
+      await page.getByRole("button", { name: "Create page" }).click();
+      await expect(page.getByText("Another page already uses this address.")).toBeVisible();
+
+      // Hide it: gone from the website and footer, still listed in the dashboard.
+      await page.goto("/admin/policies");
+      const row = page.getByRole("region", { name: "Your pages" }).getByRole("listitem").filter({ hasText: title });
+      await expect(row).toContainText("In footer");
+      await row.getByRole("link", { name: `Edit ${title}` }).click();
+      await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+      await page.getByRole("checkbox", { name: "Published (visible on the website)" }).uncheck();
+      await page.getByRole("button", { name: "Save changes" }).click();
+      await expect(page.getByText(`${title} saved. It's hidden from the website.`)).toBeVisible();
+      await page.goto(`/policies/${slug}`);
+      await expect(page.getByRole("heading", { level: 1, name: title })).toHaveCount(0);
+      await expect(page.getByRole("contentinfo").getByRole("link", { name: title })).toHaveCount(0);
+
+      // Delete it.
+      await page.goto("/admin/policies");
+      await page.getByRole("region", { name: "Your pages" }).getByRole("link", { name: `Edit ${title}` }).click();
+      await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+      page.once("dialog", (d) => d.accept());
+      await page.getByRole("button", { name: "Delete page" }).click();
+      await expect(page).toHaveURL(/\/admin\/policies\?deleted=1$/);
+      await expect(page.getByText("Page deleted.")).toBeVisible();
+      await expect(page.getByRole("region", { name: "Your pages" }).getByRole("link", { name: title })).toHaveCount(0);
+      await page.goto("/admin/activity");
+      await expect(page.getByText("Deleted page").first()).toBeVisible();
+    } finally {
+      await localDb((c) => c.query("delete from public.custom_pages where slug like 'code-of-conduct-%'"));
+    }
+  });
+
   test("check-in staff can't open the policy editor", async ({ page }) => {
     await asStaff(page, "checkin");
-    await page.goto("/admin/policies");
-    await expect(page).not.toHaveURL(/\/admin\/policies$/);
+    for (const path of ["/admin/policies", "/admin/policies/new"]) {
+      await page.goto(path);
+      await expect(page).not.toHaveURL(new RegExp(`${path}$`));
+    }
   });
 });
 

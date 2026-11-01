@@ -106,3 +106,15 @@ describe("Resend client", () => {
     await expect(sendEmail(msg)).rejects.toThrow("Resend 422: bad from");
   });
 });
+
+describe("contact reply email", () => {
+  it("quotes the original, escapes both, and uses Re: subject", async () => {
+    const { contactReplyEmail } = await import("@/lib/email-templates");
+    const e = contactReplyEmail({ name: "Bo Lee", subject: "Tables?", reply: "Yes <b>we</b> do.", originalMessage: "Do you sell <tables>?", sentAt: "November 1, 2026", replyTo: "hello@pynkpours.com" });
+    expect(e.subject).toBe("Re: Tables?");
+    expect(e.html).toContain("Yes &lt;b&gt;we&lt;/b&gt; do.");
+    expect(e.html).toContain("Do you sell &lt;tables&gt;?");
+    expect(e.text).toContain("Hi Bo,");
+    expect(e.text).toContain("> Do you sell <tables>?");
+  });
+});
