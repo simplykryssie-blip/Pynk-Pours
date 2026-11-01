@@ -16,6 +16,21 @@ export async function localDb<T>(fn: (c: Client) => Promise<T>): Promise<T> {
 
 export const resetRateLimits = () => localDb((c) => c.query("delete from public.rate_limits"));
 
+/**
+ * Rate limits use fixed windows aligned to the database clock. A test that makes
+ * several requests must not straddle a window boundary, or the counter resets
+ * mid-test. If fewer than `marginSeconds` remain in the current window, wait for
+ * the next one to start.
+ */
+export async function avoidRateLimitWindowEdge(windowSeconds: number, marginSeconds = 90) {
+  const remaining = await localDb(async (c) => {
+    const { rows } = await c.query(
+      "select $1::int - mod(floor(extract(epoch from now()))::int, $1::int) as s", [windowSeconds]);
+    return Number(rows[0].s);
+  });
+  if (remaining < marginSeconds) await new Promise((r) => setTimeout(r, (remaining + 1) * 1000));
+}
+
 /** Fails the test on console errors / failed requests / CSP violations. */
 export function watchConsole(page: Page) {
   const problems: string[] = [];

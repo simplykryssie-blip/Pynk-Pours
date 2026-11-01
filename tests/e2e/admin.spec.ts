@@ -13,7 +13,7 @@ import { mkdirSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import sharp from "sharp";
 import { asStaff, resetMfa, signInFully, STAFF } from "./admin-auth";
-import { expectNoHorizontalOverflow, localDb, resetRateLimits, watchConsole } from "./support";
+import { avoidRateLimitWindowEdge, expectNoHorizontalOverflow, localDb, resetRateLimits, watchConsole } from "./support";
 
 const axe = (page: Page) =>
   new AxeBuilder({ page: page as unknown as ConstructorParameters<typeof AxeBuilder>[0]["page"] })
@@ -72,6 +72,8 @@ test.describe("access control", () => {
 
   test("sign-in is rate limited", async ({ page, isMobile }) => {
     desktopOnly(isMobile);
+    test.setTimeout(150_000); // may wait up to 90s for a fresh 10-minute rate-limit window
+    await avoidRateLimitWindowEdge(600);
     await resetRateLimits();
     await page.goto("/admin/login");
     for (let i = 0; i < 6; i++) {

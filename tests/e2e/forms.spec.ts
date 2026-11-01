@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { humanPause, localDb, resetRateLimits } from "./support";
+import { avoidRateLimitWindowEdge, humanPause, localDb, resetRateLimits } from "./support";
 
 test.beforeEach(async () => {
   await resetRateLimits();
@@ -50,6 +50,9 @@ test("contact form: bots (honeypot / too fast) are silently dropped", async ({ p
 });
 
 test("contact form: rate limited after 5 submissions", async ({ page }) => {
+  test.setTimeout(150_000); // may wait up to 90s for a fresh 10-minute rate-limit window
+  await avoidRateLimitWindowEdge(600);
+  await resetRateLimits();
   for (let i = 0; i < 6; i++) {
     await page.goto("/contact");
     await page.getByRole("main").getByLabel("Full name").fill("Rate Tester");
