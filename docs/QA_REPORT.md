@@ -343,3 +343,81 @@ All scenarios below ran in a real browser against the local test double; screens
 4. **Fees and tax** are off (your decision is pending). The refund, terms and privacy policy pages are still placeholders, and Stripe requires real ones before live mode.
 5. **Production webhook endpoint setup** belongs to Stage G.
 6. **The CI workflow** has been updated but hasn't run on GitHub yet.
+
+---
+
+## Stage D: Pre-sign-off verification (owner request, 2026-11-01)
+
+**Status:** **NOT complete. Stage D sign-off is pending the real Stripe test-mode run.**
+
+### 1. Implementation preserved
+Stage D was committed unchanged as `4197220`. The only follow-up commit, `3da4c25`, fixes CI setup and adds tests; it doesn't change application behavior.
+
+### 2–3. Real Stripe TEST-mode demonstration: NOT YET RUN (blocked)
+In this session:
+- `STRIPE_SECRET_KEY` is **not set**.
+- The network policy still blocks `api.stripe.com` and `checkout.stripe.com`. Both connections fail outright.
+
+Environment changes only take effect in a **new session**. The prepared run, `scripts/stripe/real-test-demo.sh`, covers real hosted Checkout, signed webhook delivery through the official Stripe CLI, the 4242 success and 4000 0000 0000 0002 decline cards, a table purchase, expiry, duplicate delivery of Stripe's genuine event, and refunds. **It has not been executed.** Nothing in this report claims real-Stripe results.
+
+### 4. GitHub automated checks
+| Run | Commit | Unit/DB job | Integration + e2e job | Cause |
+|---|---|---|---|---|
+| #1 | Stage A `6bb2dd9` | ❌ setup | n/a (job added in Stage B) | `postgresql-16` package no longer exists on GitHub's Ubuntu image |
+| #2 | Stage B `d1b87bc` | ❌ setup | ❌ | Same setup failure. The e2e failure details weren't retrieved (log not reviewed) |
+| #3 | Stage C `b02910b` | ❌ setup | ❌ 30 admin tests | Same setup failure. The CI database had **no demo staff accounts**, so every admin sign-in was rejected |
+| #4 | Stage D `4197220` | ❌ setup | ✅ **137 passed, 0 failed**; integration and Stripe contract (`stripe-mock` on GitHub) passed | Staff accounts are now created in CI. Only the Postgres setup failure remains |
+| #5 | Fix `3da4c25` | ✅ **passed**: lint, types, unit, database, build, bundle secret scan | ✅ **passed**: integration (incl. Stripe contract on `stripe-mock`) and full e2e | **First fully green CI run.** Installs the distribution's PostgreSQL; scripts detect the installed version |
+
+**Lesson for me:** I previously reported "the CI workflow has not run yet". In fact it had run and failed on every push, and I hadn't checked. It is now part of each stage's checklist.
+
+### 5. Free tickets: confirmed
+`tests/integration/free-tickets.test.ts` (real local Supabase) and the browser test "free registration…" show that free registrations:
+- go through the **same** `create_pending_order` inventory validation. With capacity 3: 2 issued, a request for 2 more is refused as sold out, 1 more is allowed, then sold out.
+- receive **unique credentials** (distinct hashes and codes, encrypted credential copies).
+- are **audit-logged** (`order.paid` with `{provider: "free"}`), with holds converted.
+- skip Stripe entirely (no session), going straight to the order page.
+- **can never be used to skip payment on a paid ticket.** Trying the free path on a paid order fails with `payment_mismatch`, and no tickets are issued.
+
+### 6. Fees and sales tax remain disabled
+- Guard tests confirm the Stripe request has no `automatic_tax`, tax rates, discounts, promo codes or fees, and charges exactly the ticket prices.
+- Orders record `fee_cents = 0` and `discount_cents = 0`.
+- No tax or fee code exists in the application.
+
+### Test totals after these additions (local)
+- 54 unit tests
+- 128 database tests
+- **22 integration tests**: webhooks, free tickets, fees/tax, and the Stripe contract
+- **138 browser tests** passed (30 skipped by design), with a clean server log
+
+### 7. Everything that must be addressed before production
+**Owner content and decisions**
+1. **Refund, terms and privacy policies:** these are placeholder pages, and Stripe requires real ones before live mode. (The Terms placeholder also has a typo: "terms of use *is*"; I'll fix it with the real text.)
+2. **Fees and sales tax:** decisions pending; both currently off.
+3. **Free tickets issued without a webhook:** please confirm you're fine with this design.
+4. **Contact details:** email, phone, social links. They're hidden until supplied.
+5. **About story copy:** marked PENDING.
+6. **Experience formats:** the 6 formats taken from your mockups need confirming.
+7. **Partnership packages and media kit.**
+8. **Entrepreneurial Brunch details:** date, venue, prices, agenda, speakers.
+9. **Event photography.**
+10. **Logo files:** a transparent PNG or SVG, and a horizontal wordmark.
+11. **Brand fonts:** confirm, or keep the proposed Playfair Display and Inter.
+12. **® symbol:** confirm the marks are registered.
+13. **Age and alcohol policy** for events.
+
+**Accounts and infrastructure (Stage G, each step needs your approval)**
+
+14. New Supabase project, applying the migrations to it, and the auth settings (`docs/RUNBOOK_PRODUCTION_SETUP.md`).
+15. Vercel project and environment variables. Note that `CHECKOUT_ENABLED`, `STRIPE_API_BASE` and `PYNKPOURS_LOCAL_TEST` must not carry their local test values in production.
+16. Stripe: the test-mode run (above), a production webhook endpoint, and live mode only after your approval.
+17. Email provider and verified domain records (DNS).
+18. Domain and DNS.
+19. Supabase Pro backups or point-in-time recovery, plus a restore drill.
+20. Paid plans (Vercel Pro, Supabase Pro), which require your approval.
+
+**Engineering still to do**
+
+21. **Stage E:** ticket and confirmation emails (queued but not sent), QR codes on ticket pages, camera scanning, staff notifications for contact messages.
+22. **Stage F:** strict nonce-based security policy (CSP); true 404 status for unknown event pages; Safari, Firefox and real-device testing; accessibility and performance audit; review of `npm audit` warnings; the CI actions' Node 20 deprecation warning.
+23. **Optional:** Cloudflare Turnstile bot protection.
