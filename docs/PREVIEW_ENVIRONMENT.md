@@ -20,6 +20,7 @@ completely separate from production.
 | 0100 foundation – 0600 security | Supabase MCP `apply_migration` (recorded in migration history) |
 | 0700 rpcs, 0800 scheduling, 0900 admin | Run by the owner in the SQL Editor as one transaction, because the MCP approval prompt timed out three times. **Not recorded in `supabase_migrations`**: `list_migrations` shows only 0100–0600. |
 | 1100 custom_pages, 1200 contact_replies | Supabase MCP `apply_migration` on 2026-11-01 (recorded in migration history, as one entry) |
+| 1300 people | Supabase MCP `apply_migration` on 2026-11-01 (recorded in migration history) |
 
 If you later use `supabase db push` against this project, first mark 0700–0900 as applied
 (`supabase migration repair --status applied 20261101000700 20261101000800 20261101000900`).

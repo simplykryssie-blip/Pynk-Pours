@@ -222,7 +222,7 @@ test.describe("owner dashboard", () => {
     expect(problems).toEqual([]);
   });
 
-  for (const path of ["/admin/events", "/admin/registrations", "/admin/check-in", "/admin/inbox", "/admin/policies", "/admin/activity", "/admin/staff", "/admin/account", "/admin/events/new"]) {
+  for (const path of ["/admin/events", "/admin/registrations", "/admin/check-in", "/admin/people", "/admin/inbox", "/admin/policies", "/admin/activity", "/admin/staff", "/admin/account", "/admin/events/new"]) {
     test(`${path} renders cleanly and accessibly`, async ({ page }) => {
       const problems = watchConsole(page);
       await asStaff(page, "owner");
@@ -473,6 +473,57 @@ test.describe("registrations & attendees", () => {
 });
 
 // ---------------------------------------------------------------------------
+test.describe("people", () => {
+  test("owner sees everyone in one list, filters by segment, opens a person, tags them and exports", async ({ page, isMobile }) => {
+    desktopOnly(isMobile);
+    const tag = randomUUID().slice(0, 6);
+    const email = `people-${tag}@example.test`;
+    // One person who sent a message and joined the newsletter.
+    await localDb(async (c) => {
+      await c.query("insert into public.contact_submissions (name, email, topic, message) values ($1, $2, 'general', 'Hello there, people list test.')", [`People ${tag}`, email]);
+      await c.query("insert into public.newsletter_subscribers (email, source) values ($1, 'footer')", [email]);
+    });
+    try {
+      await asStaff(page, "owner");
+      await page.goto("/admin/people");
+      await expect(page.getByRole("heading", { level: 1, name: "People" })).toBeVisible();
+      await page.getByRole("searchbox", { name: "Search" }).or(page.getByRole("textbox", { name: "Search" })).fill(tag);
+      await page.getByRole("combobox", { name: "Show" }).selectOption("subscribed");
+      await page.getByRole("button", { name: "Apply" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "1 person" })).toBeVisible();
+      const row = page.getByRole("row").filter({ hasText: email });
+      await expect(row).toContainText("Can receive marketing");
+      await expect(row).toContainText("1 message");
+      expect(await seriousViolations(page)).toEqual([]);
+
+      await row.getByRole("link", { name: `People ${tag}` }).click();
+      await expect(page.getByRole("heading", { level: 1, name: `People ${tag}` })).toBeVisible();
+      const history = page.getByRole("region", { name: "History" });
+      await expect(history).toContainText("Sent a message");
+      await expect(history).toContainText("Agreed to marketing emails (footer)");
+      await page.getByRole("textbox", { name: /^Tags/ }).fill("VIP, Speaker");
+      await page.getByRole("textbox", { name: /^Private notes/ }).fill("Met at the brunch.");
+      await page.getByRole("button", { name: "Save notes" }).click();
+      await expect(page.getByText("Notes saved.")).toBeVisible();
+      expect(await seriousViolations(page)).toEqual([]);
+
+      await page.goto("/admin/people?tag=speaker");
+      await expect(page.getByRole("row").filter({ hasText: email })).toContainText("#vip");
+      const csv = await (await page.request.get(`/admin/people/export?q=${tag}`)).text();
+      expect(csv.split("\r\n")[0]).toContain("Marketing permission");
+      expect(csv).toContain(`${email},People ${tag}`);
+      expect(csv).toContain("vip speaker");
+    } finally {
+      await localDb(async (c) => {
+        await c.query("delete from public.people_notes where email = $1", [email]);
+        await c.query("delete from public.newsletter_subscribers where email = $1", [email]);
+        await c.query("delete from public.contact_submissions where email = $1", [email]);
+      });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 test.describe("check-in staff (restricted role)", () => {
   test("lands on check-in, sees no financial or management areas", async ({ page }) => {
     await asStaff(page, "checkin");
@@ -480,17 +531,18 @@ test.describe("check-in staff (restricted role)", () => {
     await expect(page).toHaveURL(/\/admin\/check-in/);
     const nav = page.getByRole("navigation", { name: /Admin/ }).first();
     if (await page.getByRole("button", { name: "Open admin menu" }).isVisible()) await page.getByRole("button", { name: "Open admin menu" }).click();
-    for (const hidden of ["Events", "Registrations", "Staff", "Inbox", "Activity log", "Overview"]) {
+    for (const hidden of ["Events", "Registrations", "People", "Staff", "Inbox", "Activity log", "Overview"]) {
       await expect(page.getByRole("link", { name: hidden, exact: true })).toHaveCount(0);
     }
     await expect(nav.or(page.getByRole("navigation", { name: "Admin mobile" }))).toBeTruthy();
-    for (const path of ["/admin/events", "/admin/registrations", "/admin/staff", "/admin/events/new"]) {
+    for (const path of ["/admin/events", "/admin/registrations", "/admin/people", "/admin/staff", "/admin/events/new"]) {
       await page.goto(path);
       await expect(page).toHaveURL(/\/admin\/check-in\?error=forbidden/);
     }
     const eventId = await localDb(async (c) => (await c.query("select id from public.events where slug = 'sample-networking-social'")).rows[0].id);
     expect((await page.request.get(`/admin/events/${eventId}/export/sales`)).status()).toBe(403);
     expect((await page.request.get("/admin/inbox/newsletter")).status()).toBe(403);
+    expect((await page.request.get("/admin/people/export")).status()).toBe(403);
     await expectNoHorizontalOverflow(page);
   });
 

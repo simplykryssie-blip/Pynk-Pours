@@ -3,7 +3,9 @@
  * never rendered as HTML:
  *
  *   Paragraphs are separated by a blank line.
- *   "## Heading" starts a numbered section.
+ *   "## Heading" starts a numbered section. So does a line on its own like
+ *   "3. How Long We Keep Your Information" when it is the next number in order
+ *   (the common format of policies pasted from a document).
  *   Lines starting with "- " are bullet points.
  *
  * Text before the first heading is the introduction. Order is preserved.
@@ -29,13 +31,21 @@ export function parsePolicyText(text: string): PolicyContent {
     list = null;
   };
 
-  for (const raw of text.replace(/\r\n?/g, "\n").split("\n")) {
-    const line = raw.trim();
-    if (/^##(\s|$)/.test(line)) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n").map((l) => l.trim());
+  lines.forEach((line, i) => {
+    const numbered = /^(\d{1,2})\.\s+(\S.{0,99})$/.exec(line);
+    const standalone = paragraph.length === 0 && !list && (lines[i + 1] ?? "") === "";
+    if (numbered && standalone && Number(numbered[1]) === out.sections.length + 1 && !/[.!?:]$/.test(numbered[2])) {
+      flushParagraph();
+      flushList();
+      const section: PolicySection = { heading: numbered[2].trim(), blocks: [] };
+      out.sections.push(section);
+      target = section.blocks;
+    } else if (/^##(\s|$)/.test(line)) {
       flushParagraph();
       flushList();
       const heading = line.slice(2).trim();
-      if (!heading) continue;
+      if (!heading) return;
       const section: PolicySection = { heading, blocks: [] };
       out.sections.push(section);
       target = section.blocks;
@@ -50,7 +60,7 @@ export function parsePolicyText(text: string): PolicyContent {
       flushList();
       paragraph.push(line);
     }
-  }
+  });
   flushParagraph();
   flushList();
   return out;

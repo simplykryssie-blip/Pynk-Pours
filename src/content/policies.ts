@@ -36,6 +36,7 @@ const privacyPolicy: DraftPolicy = {
         "\"Get notified\" and waitlist requests: your name, email address and how many tickets you're interested in.",
         "Ticket purchases: the purchaser's name, email address and (optionally) phone number, and the name, email address and (optionally) phone number of each guest, plus answers to any questions an event asks.",
         "At events: a record of when each ticket was checked in.",
+        "At checkout: whether you chose to receive emails about future PynkPours events.",
       ],
     },
     {
@@ -58,10 +59,18 @@ const privacyPolicy: DraftPolicy = {
         "issue and deliver tickets, confirmations and event updates;",
         "check guests in at the door;",
         "process refunds and respond to questions;",
-        "send our newsletter if you subscribed (you can unsubscribe at any time);",
+        "send our newsletter and event announcements if you agreed to receive them (you can unsubscribe at any time);",
         "let you know when an event you asked about opens for registration;",
         "keep the site secure and prevent fraud; and",
         "meet our legal, tax and accounting obligations.",
+      ],
+    },
+    {
+      heading: "Your record with us",
+      body: [
+        "We keep one record for each email address that brings together your interactions with PynkPours: events you registered for or attended, waitlist and \"get notified\" requests, messages you sent us, and whether you've agreed to marketing emails. Our team may add short notes or labels to it (for example, that you spoke at one of our events). Only authorised PynkPours staff can see it.",
+        "We use it to recognise returning guests, to answer you with the right context, and to invite past guests to future events.",
+        "We send marketing emails, such as newsletters and event announcements, only to people who have agreed to receive them, by subscribing to our newsletter or ticking the box at checkout. Every marketing email includes an unsubscribe link. Emails about tickets you bought and replies to your messages are not marketing and are sent regardless.",
       ],
     },
     {
@@ -77,6 +86,7 @@ const privacyPolicy: DraftPolicy = {
         "Ticket orders and payment records: up to 7 years, for tax and accounting purposes.",
         "Contact and partnership messages: up to 2 years.",
         "Newsletter subscriptions: until you unsubscribe.",
+        "Your record with us (see above): for as long as you keep interacting with PynkPours. You can ask us to delete it at any time.",
         "Event interest and waitlist requests: until the event has taken place or registration has closed.",
       ],
       body: [],

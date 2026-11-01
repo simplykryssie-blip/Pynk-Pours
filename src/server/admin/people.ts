@@ -7,6 +7,7 @@ import { z } from "zod";
 import { staffForAction, type StaffRole } from "../auth/staff";
 import { hashCredential, isWellFormedCredential } from "../credentials";
 import { contactReplyEmail } from "@/lib/email-templates";
+import { parseTags } from "@/lib/people";
 import { emailConfigured, sendEmail } from "../email/resend";
 import { serviceDb } from "../supabase";
 import { dbMessage, formValues, invalid, isUuid, type ActionState } from "./common";
@@ -206,4 +207,30 @@ export async function replyToMessage(_prev: ActionState, form: FormData): Promis
   revalidatePath("/admin/inbox");
   // Replied messages count as handled, so show them under "All" with a confirmation.
   redirect(`/admin/inbox?show=all&replied=${id}#message-${id}`);
+}
+
+// ---------------------------------------------------------------- people notes & tags
+const notesSchema = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email({ error: "Invalid request." })),
+  notes: z.string().max(5000, "Keep notes under 5,000 characters."),
+  tags: z.string().max(600, "Too many tags."),
+});
+
+/** Owner/admin: private notes and tags on a person (People). Audited. */
+export async function savePersonNotes(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const staff = await staffForAction(["owner", "admin"]);
+  if ("error" in staff) return { status: "error", message: staff.error };
+  const parsed = notesSchema.safeParse(Object.fromEntries(form));
+  if (!parsed.success) return invalid(parsed.error, form);
+  const { email, notes } = parsed.data;
+  const tags = parseTags(parsed.data.tags);
+  const row = { notes: notes.trim(), tags, updated_by: staff.user.id };
+  const { data: updated, error: updateError } = await staff.db.from("people_notes").update(row).eq("email", email).select("email");
+  if (updateError) return { status: "error", message: dbMessage(updateError), values: formValues(form) };
+  if (!updated?.length) {
+    const { error } = await staff.db.from("people_notes").insert({ email, ...row });
+    if (error) return { status: "error", message: dbMessage(error), values: formValues(form) };
+  }
+  revalidatePath("/admin/people", "layout");
+  return { status: "success", message: "Notes saved.", nonce: crypto.randomUUID() };
 }

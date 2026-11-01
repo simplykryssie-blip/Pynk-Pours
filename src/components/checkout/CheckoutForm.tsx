@@ -129,6 +129,10 @@ export function CheckoutForm({ slug, lines, questions, currency, minAge, holdMin
           <span>I&apos;ve read the event details and the <a href="/refunds" target="_blank" className="underline">refund policy</a>.</span>
         </label>
         {err.agree && <p className="text-sm text-[#b3261e]">{err.agree}</p>}
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" name="marketing_opt_in" className="mt-0.5 size-5 accent-pp-pink-strong" />
+          <span>Email me about future PynkPours events (optional). You can unsubscribe any time.</span>
+        </label>
         <Pay free={total === 0} ready={Boolean(key)} />
         <p className="text-xs text-pp-black/60">
           {total === 0 ? "No payment needed." : `Your tickets are held for ${holdMinutes} minutes while you pay on Stripe's secure page. We never see or store your card details.`}

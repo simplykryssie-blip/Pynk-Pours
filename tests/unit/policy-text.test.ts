@@ -48,3 +48,20 @@ describe("policy text format", () => {
     expect(html.intro).toEqual([{ kind: "p", text: "<script>alert(1)</script>" }]);
   });
 });
+
+describe("policies pasted from a document", () => {
+  it("treats standalone, in-order '1. Title' lines as headings and '*' as bullets", async () => {
+    const { parsePolicyText } = await import("@/lib/policy-text");
+    const c = parsePolicyText("Intro.\r\n\r\n1. Information We Collect\r\n\r\n* Your name\r\n* Email\r\n\r\n2. Payment Information\r\n\r\nPaid via Stripe.\r\n\r\n4. Skipped Number\r\n\r\n3. Steps:\r\n\r\n1. Not a heading again");
+    expect(c.intro).toEqual([{ kind: "p", text: "Intro." }]);
+    expect(c.sections.map((s) => s.heading)).toEqual(["Information We Collect", "Payment Information"]);
+    expect(c.sections[0].blocks).toEqual([{ kind: "ul", items: ["Your name", "Email"] }]);
+    // Out-of-order numbers and lines ending in punctuation stay as text.
+    expect(c.sections[1].blocks.map((b) => (b.kind === "p" ? b.text : ""))).toEqual(["Paid via Stripe.", "4. Skipped Number", "3. Steps:", "1. Not a heading again"]);
+  });
+  it("a numbered line inside a paragraph is not a heading", async () => {
+    const { parsePolicyText } = await import("@/lib/policy-text");
+    const c = parsePolicyText("We do two things:\n1. Sell tickets\n\nDone.");
+    expect(c.sections).toEqual([]);
+  });
+});

@@ -59,6 +59,9 @@ export async function startCheckout(_prev: CheckoutState, form: FormData): Promi
   const o = order as { order_id: string; total_cents: number; currency: string; existing: boolean; status: string; line_items: { name: string; unit_price_cents: number; quantity: number }[] };
   const orderUrl = `${siteUrl()}/orders/${token}`;
 
+  // Optional "email me about future events" box: the buyer's own marketing permission.
+  if (form.get("marketing_opt_in") === "on") await recordMarketingConsent(c.purchaser.email, "checkout");
+
   // Double-submit / back-button: never create a second order or charge.
   if (o.existing && o.status !== "pending") redirect(orderUrl);
 
@@ -100,6 +103,18 @@ export async function startCheckout(_prev: CheckoutState, form: FormData): Promi
   }
   if (!sessionUrl) return { status: "error", message: "Payment page unavailable. Please try again." };
   redirect(sessionUrl);
+}
+
+/**
+ * Records that this email agreed to marketing emails. Ticking the box again after
+ * unsubscribing is a fresh, explicit opt-in, so it re-subscribes. Never blocks checkout.
+ */
+async function recordMarketingConsent(email: string, source: string) {
+  const { error } = await serviceDb().from("newsletter_subscribers").upsert(
+    { email: email.trim().toLowerCase(), source, consented_at: new Date().toISOString(), unsubscribed_at: null },
+    { onConflict: "email" },
+  );
+  if (error) console.error("[checkout] marketing opt-in not recorded:", error.message);
 }
 
 /** Guest abandons checkout from their order page: expire the Stripe session and release the seats. */

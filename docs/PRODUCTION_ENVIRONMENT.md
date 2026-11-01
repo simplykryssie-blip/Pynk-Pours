@@ -17,6 +17,7 @@ The live database for pynkpours.com. Real data only: no SAMPLE content is ever l
 | 0100 foundation to 0600 security | Supabase MCP `apply_migration` (recorded in migration history) |
 | 0700 rpcs, 0800 scheduling, 0900 admin, 1000 site_pages | Run by the owner in the SQL Editor as one transaction. **Not recorded in `supabase_migrations`**. |
 | 1100 custom_pages, 1200 contact_replies | Supabase MCP `apply_migration` on 2026-11-01 (recorded in migration history, production as two entries) |
+| 1300 people | Supabase MCP `apply_migration` on 2026-11-01 (recorded in migration history) |
 
 Before using `supabase db push` here, first run
 `supabase migration repair --status applied 20261101000700 20261101000800 20261101000900 20261101001000`.

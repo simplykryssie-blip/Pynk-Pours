@@ -250,9 +250,16 @@ test("free registration: no Stripe redirect, tickets issued, inventory enforced,
   await page.getByText(/I've read the event details/).click();
   // Every PynkPours event is 18+, even when the event sets no age of its own.
   await page.getByText("I confirm every guest is 18 or older and will bring valid ID.").click();
+  // Optional marketing permission: the buyer opts in at checkout.
+  await page.getByRole("checkbox", { name: /Email me about future PynkPours events/ }).check();
   await page.waitForTimeout(2700);
   await page.getByRole("button", { name: "Complete registration" }).click();
   await expect(page).toHaveURL(/\/orders\/[A-Za-z0-9_-]{43}$/); // straight to the order — no payment page
+  const consent = await localDb(async (c) => (await c.query("select source, unsubscribed_at from public.newsletter_subscribers where email = $1", [`buyer-${tag}@example.test`])).rows);
+  expect(consent).toEqual([{ source: "checkout", unsubscribed_at: null }]);
+  // Guests who didn't tick anything get no marketing permission.
+  const guests = await localDb(async (c) => (await c.query("select count(*)::int n from public.newsletter_subscribers where email like $1", [`free_-${tag}@example.test`])).rows[0].n);
+  expect(guests).toBe(0);
   await expect(page.getByRole("heading", { name: "You're registered!" })).toBeVisible();
   await expect(page.getByTestId("ticket")).toHaveCount(2);
   const o = await orderByBuyer(tag);

@@ -476,3 +476,22 @@ Both migrations were applied to the production and preview databases with Supaba
 
 ### Owner decisions recorded
 - **Newsletters** (to be built after the form builder): send to newsletter sign-ups, past buyers and guests, event interest/waitlist lists, and uploaded contacts, **only where the person has given marketing permission**. Buyers will get an opt-in checkbox at checkout. Every newsletter will carry an unsubscribe link and the PynkPours mailing address (US CAN-SPAM).
+
+## People list, checkout opt-in, privacy update (2026-11-01)
+
+**People (Dashboard → People, owners/admins only).** One row per email for everyone who has bought or registered, been named as a guest, checked in, joined a waitlist or get-notified list, sent a message (spam excluded) or subscribed. It's computed from the existing records, so it's always up to date. Abandoned (unpaid) checkouts are not included.
+- Filters: everyone; attended; registered but didn't attend a past event; registered or bought; sent a message; waitlist/notify; can receive marketing; no marketing permission. Plus name/email search and tag filter, 50 per page.
+- Person page: contact details, counts, a full history (orders, tickets, check-ins, waitlists, messages, subscribe/unsubscribe) linking to the related order, event or message, plus private notes and tags.
+- **Download CSV** of the current filter. Every export is recorded in the activity log.
+- **Marketing permission** comes only from the newsletter list: someone who subscribed or ticked the checkout box and hasn't unsubscribed. Everyone else is listed but marked "No marketing permission".
+- Database (migration 1300): `people_notes` (MFA-verified owner/admin; edits attributed and audited). The list functions refuse anyone who isn't an MFA-verified owner/admin; the internal building blocks can't be called directly by anyone.
+
+**Checkout opt-in.** New optional box: "Email me about future PynkPours events (optional). You can unsubscribe any time." Ticking it records the **buyer's** marketing permission (source "checkout"); guests listed on the order are not opted in.
+
+**Privacy Policy.** The owner had replaced the drafted policy with her own text. At her request, three additions were made to her published text (production, directly in the database, checked against the exact version read so nothing else could change): a "Your Record With PynkPours" part in section 4, a sentence about the optional checkout box, and a retention line. The built-in draft was updated the same way.
+
+**Policy display fix.** Policies pasted from a document use "1. Heading" lines and "*" bullets. Standalone, in-order numbered lines are now shown as section headings (out-of-order numbers and sentences stay as text). All three published policies use this format.
+
+**Bugs caught by the new tests and fixed before release:** a table nested inside a table (page error); faint "None" text (contrast); saving notes was refused because the save tried to rewrite the email key.
+
+**Tests:** 5 database tests (merging, segments including no-shows, search/tags/notes, access, audited export), 2 parsing tests, browser tests for the People list/person page/notes/tags/CSV, the checkout opt-in, and check-in staff being denied. **Totals (local): 224 unit/database, 18 integration, 158 browser tests passed, 0 failed.**
