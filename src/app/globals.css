@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/*
+ * PynkPours design tokens (DESIGN_SYSTEM.md). Starting values — tune against the
+ * official logo once transparent/vector artwork is supplied.
+ */
+:root {
+  --pp-black: #0b0b0b;
+  --pp-charcoal: #161216;
+  --pp-cream: #f7f1ed;
+  --pp-blush: #e7b7c9;
+  --pp-pink: #d994b2;
+  --pp-pink-strong: #c2185b; /* CTA fill: passes WCAG AA with white text */
+  --pp-gold: #c8a45d;
+  --pp-muted: #b8aeb2;
+}
+
+@theme inline {
+  --color-pp-black: var(--pp-black);
+  --color-pp-charcoal: var(--pp-charcoal);
+  --color-pp-cream: var(--pp-cream);
+  --color-pp-blush: var(--pp-blush);
+  --color-pp-pink: var(--pp-pink);
+  --color-pp-pink-strong: var(--pp-pink-strong);
+  --color-pp-gold: var(--pp-gold);
+  --color-pp-muted: var(--pp-muted);
+  --font-serif: var(--font-pp-serif), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-pp-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--pp-black);
+  color: var(--pp-cream);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--pp-gold);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

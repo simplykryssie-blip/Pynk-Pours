@@ -1,7 +1,14 @@
 # PynkPours — Stage A: Technical Review & Implementation Plan
 
-Status: **DRAFT for owner review.** Nothing in here has been deployed, connected, or applied to any database.
+Status: **Revision 2: approved direction, Stage A implemented locally.** Nothing has been deployed, connected, or applied to any hosted database.
 Date: 2026-11-01
+
+> **Revision 2 changes (owner clarifications, 2026-11-01):**
+> - Added §3.10–3.14: rate limiting, admin audit logs, ticket-hold expiration, backup and recovery testing, and attendee/sales exports.
+> - Changed credential storage: ciphertext plus hash, instead of rotate-on-resend (see item 16).
+> - Changed local test approach: Vitest-driven SQL tests on local Postgres 16 instead of pgTAP (see §2.5).
+> - Updated the file tree for Next.js 16 (`middleware.ts` is now `proxy.ts`).
+> - Remote changes paused: no commits or pushes until the owner confirms the GitHub account.
 
 ---
 
@@ -46,7 +53,12 @@ Date: 2026-11-01
 13. **No guards on publishing.** An event can be published without a date, venue or ticket types. **Fix:** a trigger blocks `status → published` unless the required fields are present. It also validates `ends_at > starts_at`, the slug format, and that `timezone` is in `pg_timezone_names`.
 14. **Currency is set per tier, but a Stripe Checkout session needs a single currency.** **Fix:** move `currency` to `events`, and have all of an event's tiers inherit it.
 15. **No secure guest access to orders.** Guests have no login, so the confirmation and ticket pages need unguessable tokens. **Fix:** add `orders.public_token_hash`, used for `/orders/[token]`. The `/t/[credential]` ticket page hashes the credential from the URL to find the ticket. Both pages send `Referrer-Policy: no-referrer` and `noindex`.
-16. **Resending a ticket when only a hash is stored.** The raw QR credential can't be re-emailed, because it was never kept. **Fix:** "Resend ticket" **rotates** the credential. It issues a new random token, stores its hash, and the old QR stops working. This is also the right behavior if a ticket is forwarded to the wrong person. It's tracked with `credential_rotated_at` and `credential_version`.
+16. **Resending a ticket when only a hash is stored.** The raw QR credential can't be re-emailed, because it was never kept. ~~The original fix was to rotate the credential on every resend.~~ **Revised fix (as built):** lookup uses only the SHA-256 hash of the credential. The app server also stores an **AES-256-GCM ciphertext** of the credential, encrypted with `TICKET_CREDENTIAL_KEY`. That key exists only in the app's environment and never reaches the database. As a result:
+    - a database leak alone reveals no usable QR codes,
+    - the guest ticket page and email retries can re-render the QR,
+    - resending doesn't invalidate a guest's existing QR.
+
+    **Rotation** still exists as an explicit admin action (`rotate_ticket_credential`), for example when a ticket was sent to the wrong person. The handoff's account guide anticipated this kind of server-only "ticket encryption key".
 17. **No audit trail.** **Fix:** add an append-only `audit_log` (actor, action, entity, before/after JSON). Triggers on `events`, `ticket_types` and `admin_profiles` write to it, and so do server actions for refunds, resends and manual check-ins.
 18. **Missing indexes on foreign keys and lookups.** These include `attendees.ticket_type_id`, `tickets.order_id`, `check_ins.ticket_id`, `lower(orders.purchaser_email)`, and a manual-lookup search on attendee name and email (`pg_trgm`).
 
@@ -75,6 +87,13 @@ I won't edit the draft in place. I'll write a **replacement** set of migrations 
 
 Nothing touches a hosted project until you approve.
 
+**As built:** the official Supabase Docker images can't be downloaded in this workspace because the registry is blocked. Instead:
+- Migrations run on a local, disposable **Postgres 16**.
+- A small setup file (`supabase/tests/supabase-local-shim.sql`) recreates the parts of Supabase the migrations depend on: the `anon`, `authenticated` and `service_role` roles, `auth.uid()`, and Supabase's **permissive default privileges**.
+- Tests are written in Vitest. Each one acts as the real API role, the same way Supabase's API layer does.
+
+Before production, the same migrations must also pass on a real **disposable Supabase project or Supabase branch** (Stage G gate).
+
 ---
 
 ## 3. Architecture & security model
@@ -85,7 +104,7 @@ Nothing touches a hosted project until you approve.
 - **Stripe Checkout** in test mode, using the hosted redirect. It's the simplest option for PCI scope (SAQ A) and the most robust. The mockup's on-page card form would mean Elements or Embedded Checkout, which we can revisit later without changing the backend.
 - **Transactional email:** recommend **Resend** (a simple API, React email templates, free tier). **Postmark** is a good alternative with excellent deliverability. Either needs DNS records on pynkpours.com.
 - **QR codes:** generated server-side with `qrcode`. Scanning uses `qr-scanner` or `@zxing/browser`, both of which work on iOS Safari (the native `BarcodeDetector` API doesn't).
-- **Tests:** Vitest (unit), pgTAP (RLS and privileges), Node integration tests against local Supabase (concurrency and webhooks), and Playwright (end-to-end, mobile and desktop viewports).
+- **Tests:** Vitest (unit tests, plus database tests run as the real Supabase API roles against local Postgres 16) and Playwright (end-to-end, mobile and desktop viewports).
 
 ### 3.2 Trust boundaries
 | Actor | Can do |
@@ -158,6 +177,78 @@ TURNSTILE_SECRET_KEY                      # optional, server only
 ```
 A build-time check fails the build if any server-only name is prefixed with `NEXT_PUBLIC_`. A CI step greps the client bundle for `sk_`, `sb_secret_` and `whsec_`.
 
+> **Added in Revision 2:** `TICKET_CREDENTIAL_KEY` (32 random bytes, base64, server only) and `STRIPE_ALLOW_LIVE` (must stay `false` until go-live approval; the app refuses `sk_live_` keys otherwise).
+
+### 3.10 Rate limiting (owner requirement)
+- **Mechanism:** a fixed-window counter in Postgres (`rate_limits` table plus the `check_rate_limit()` RPC, callable only by the server).
+  - The key is an HMAC of the client IP with `RATE_LIMIT_SALT`, so raw IP addresses are never stored.
+  - The increment is atomic, so limits stay exact under parallel bursts (tested: 30 concurrent requests against a limit of 10 lets exactly 10 through).
+  - The 5-minute sweep removes rows older than a day.
+- **Proposed limits** (tunable per route, enforced in each server action):
+
+  | Route / action | Limit |
+  |---|---|
+  | Contact form | 5 per 10 minutes per IP |
+  | Newsletter / Get-notified | 10 per hour per IP |
+  | Checkout start | 10 per 10 minutes per IP, plus 30 per hour per email |
+  | Order-status polling | 60 per minute per IP |
+  | Admin sign-in | Supabase Auth's built-in limits, plus 10 per 10 minutes per IP at the app layer |
+  | Check-in scans | Not limited per staff member; staff accounts are authenticated and audited |
+- **Defense in depth:** honeypot field, minimum time to fill a form, request body size limits, and optional Cloudflare Turnstile on public forms.
+- **Seat hoarding:** someone could start checkouts just to hold seats. This is limited by short holds, per-order maximums and the checkout rate limit above.
+
+### 3.11 Administrative audit logs (owner requirement)
+- **`audit_log` is append-only.**
+  - Database triggers reject UPDATE, DELETE and TRUNCATE, even from the table owner.
+  - The server role has no UPDATE or DELETE privilege on it.
+  - Admins can read it; nobody can change it.
+- **What is recorded automatically** (by triggers): every insert, update and delete on `events`, `ticket_types`, `event_questions` and `admin_profiles`. Each entry records the actor's user id, their role at that moment, and full before/after snapshots.
+- **What the trusted functions record:**
+  - payment fulfillment and orders flagged for review
+  - refunds (with source and tickets affected)
+  - ticket cancellations
+  - undoing a check-in
+  - credential rotation
+  - ticket resends
+  - **every attendee and sales export** (exports contain personal data, so it matters who downloaded them)
+- System actions (webhooks, scheduled jobs) are recorded with no human actor. Check-in scans are recorded separately in `check_ins`, which logs the scanner, time, result and method.
+- Stage C adds an admin "Activity" view with filters by event, staff member and action.
+
+### 3.12 Ticket-hold expiration (owner requirement)
+- **Every reservation creates `inventory_holds` rows** with an `expires_at`. The default is 35 minutes, and the Stripe Checkout session expires at 30 minutes, so a session can never outlive its hold.
+- **Lazy expiry:** availability math ignores holds whose `expires_at` has passed, at the moment it reads them. Correctness never depends on a background job running (tested).
+- **Event-driven release:** when Stripe reports `checkout.session.expired` or a failed payment, `release_order()` runs immediately. Repeating it does nothing harmful.
+- **Sweep:** `sweep_expired()` runs every 5 minutes via `pg_cron` on Supabase, with a `CRON_SECRET`-protected route as a fallback. It marks abandoned orders `cancelled (checkout_expired)`, marks holds `expired`, and prunes old rate-limit rows.
+- **Late payments** (payment that lands after the hold expired) are honored if capacity remains. Otherwise the order is recorded as paid, flagged `needs_review` for an admin refund, and issued **no tickets**. Never oversold (tested).
+
+### 3.13 Backup and recovery (owner requirement)
+- **Local drill (automated, runs in CI):** `tests/db/backup-restore.test.ts` populates a database with events, a paid order, a check-in and a pending hold, then restores it two ways:
+  - (A) a full `pg_dump` restored into an empty database,
+  - (B) a data-only dump restored into a freshly migrated database (the path used to move data into a new Supabase project).
+
+  Each restore is checked for:
+  - identical row counts in 12 tables
+  - every security policy present, and security still enforced
+  - check-in state preserved and working
+  - order-number sequences continuing without reuse
+  - the audit log still append-only
+
+  **Finding:** data-only restores must load with `session_replication_role = replica`. Otherwise the publish guard rejects historical published events. This is documented in the runbook.
+- **Production plan (owner approval needed, Stage G):**
+  - **Supabase Pro** for automated daily backups (7-day retention). Optional **Point-in-Time Recovery** add-on, recommended once ticket sales begin.
+  - A **weekly off-platform logical backup** (`pg_dump` to owner-controlled encrypted storage), run by a scheduled GitHub Action using a read-only database credential.
+  - A **restore drill before launch and every quarter.** Restore into a *new, separate* Supabase project, never over production, then run the verification checks above against it.
+  - Recovery targets (owner to confirm): data loss of at most 24 hours (minutes with PITR), and service restored within 4 hours.
+  - Stripe remains the system of record for payments. A reconciliation script can re-derive order payment status from Stripe if the database is ever restored to an earlier point.
+
+### 3.14 Attendee and sales exports (owner requirement)
+- **Admin-only database functions** (each export is audited):
+  - `export_attendees(event)`: order number, purchaser, attendee name/email/phone, ticket type, manual code, ticket status, check-in time, custom answers.
+  - `export_sales(event)`: per paid order, the items, subtotal, discount, fee, total, refunded and net amounts, the Stripe payment reference, and the review flag.
+  - `event_sales_summary(event)`: totals and units sold by tier, for the dashboard.
+- **CSV generation** (`src/lib/csv.ts`) neutralizes spreadsheet formula injection. Cells starting with `= + - @` get a leading quote, because attendee names and answers come from the public.
+- **Access:** check-in staff can't export (tested). Downloads are served with `Cache-Control: no-store`.
+
 ---
 
 ## 4. Proposed file tree
@@ -186,7 +277,7 @@ pynk-pours/
 │  │  ├─ 0007_rpcs.sql                  # reserve, fulfill, release, refund, check_in, lookup
 │  │  └─ 0008_views_cron.sql            # public availability view, expiry sweep
 │  ├─ seed.sql                          # LOCAL ONLY, clearly labelled "SAMPLE — NOT REAL"
-│  └─ tests/                            # pgTAP: rls.test.sql, grants.test.sql, rpcs.test.sql
+│  └─ tests/supabase-local-shim.sql     # LOCAL ONLY: emulates Supabase roles/auth/default grants
 ├─ scripts/
 │  ├─ create-admin.ts
 │  └─ check-env.ts
@@ -225,10 +316,10 @@ pynk-pours/
 │  │  ├─ supabase/{admin,server,browser}.ts
 │  │  ├─ auth/requireRole.ts
 │  │  ├─ checkout/, fulfillment/, refunds/, checkin/, email/, ratelimit/
-│  └─ middleware.ts                      # session refresh, admin route gate, security headers
+│  └─ proxy.ts                           # Next 16 name for middleware: session refresh, admin gate, CSP nonce
 └─ tests/
    ├─ unit/        # money, tz, credential, schemas, webhook handler (signed fixtures)
-   ├─ integration/ # concurrency: 50 parallel reserves on 10 seats; 20 parallel check-ins
+   ├─ db/          # security/RLS, checkout, lifecycle, concurrency, backup-restore (local Postgres)
    └─ e2e/         # Playwright: browse → buy (Stripe test) → ticket → check-in, mobile+desktop
 ```
 
@@ -257,7 +348,7 @@ Stages A–F can be built and tested entirely in this environment with **no acco
 ## 6. Owner decisions and assets needed
 
 ### 6.1 Blocking only at the stage noted
-1. **GitHub repository confirmation (blocks the first push).** This session's working repository is `simplykryssie-blip/Pynk-Pours`. Is that the new dedicated PynkPours GitHub account and repo? Until you confirm, nothing gets pushed.
+1. **GitHub repository confirmation (blocks all commits and pushes).** This session's working repository is `simplykryssie-blip/Pynk-Pours`. One review-document commit was pushed there on 2026-11-01 before your confirmation; that was an error on my part. By owner instruction, **no further commits or pushes** will be made until you confirm the dedicated account. All Stage A work is uncommitted in the local workspace.
 2. **Hosting plan cost (blocks Stage G).** Vercel's free Hobby plan is limited to **non-commercial** use, so selling tickets requires **Vercel Pro** (about $20/month per seat). Supabase Free pauses inactive projects and has no automated backups. **Supabase Pro** (about $25/month) is recommended for a production ticketing database. Both are paid and need your approval.
 3. **Domain DNS access (blocks email sending and launch).** Where is pynkpours.com registered, and do you control its DNS? Email-provider verification and Vercel both need DNS records.
 4. **Fees and tax (blocks Stage D pricing display).** Do buyers pay a processing fee, as the mockup shows, or do you absorb it? Should sales tax be collected? Ticket and admission tax rules vary by state and parish, so please confirm with your accountant. I'll build fee and tax support as configurable and default both to **off**.
