@@ -37,5 +37,12 @@ export default defineConfig({
       reuseExistingServer: true,
       timeout: 30_000,
     },
+    {
+      // LOCAL RESEND TEST DOUBLE (not Resend; sends nothing) — see tests/support/resend-double.mts
+      command: "npx tsx tests/support/resend-double.mts",
+      url: "http://127.0.0.1:12113/__test/health",
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
   ],
 });

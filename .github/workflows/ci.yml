@@ -62,6 +62,12 @@ jobs:
           echo "STRIPE_WEBHOOK_SECRET=whsec_ci_$(openssl rand -hex 16)" >> .env.local
           echo "STRIPE_API_BASE=http://127.0.0.1:12111" >> .env.local
           echo "PYNKPOURS_LOCAL_TEST=true" >> .env.local
+          # Email goes to the LOCAL RESEND TEST DOUBLE only (sends nothing).
+          echo "RESEND_API_KEY=re_test_LOCAL_DOUBLE_not_a_real_key" >> .env.local
+          echo "RESEND_API_BASE=http://127.0.0.1:12113" >> .env.local
+          echo "EMAIL_FROM=PynkPours <tickets@pynkpours.test>" >> .env.local
+          echo "CONTACT_INBOX_EMAIL=inbox@pynkpours.test" >> .env.local
+          echo "CRON_SECRET=$(openssl rand -hex 32)" >> .env.local
       - run: scripts/db/reset-local-demo.sh
       - run: npm run test:integration
       - run: npm run build

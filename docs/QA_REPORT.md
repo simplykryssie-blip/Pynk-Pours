@@ -421,3 +421,41 @@ Environment changes only take effect in a **new session**. The prepared run, `sc
 21. **Stage E:** ticket and confirmation emails (queued but not sent), QR codes on ticket pages, camera scanning, staff notifications for contact messages.
 22. **Stage F:** strict nonce-based security policy (CSP); true 404 status for unknown event pages; Safari, Firefox and real-device testing; accessibility and performance audit; review of `npm audit` warnings; the CI actions' Node 20 deprecation warning.
 23. **Optional:** Cloudflare Turnstile bot protection.
+
+## Stage E: Emails, QR tickets and camera check-in (local; preview verification below)
+
+**Status:** built and tested locally against the local Supabase stack, the local Stripe test double and a new **local Resend test double** (`tests/support/resend-double.mts`, sends nothing). Checkout stays **off** in production.
+
+### What was built
+- **Email sending (Resend REST API, no SDK).** Queued messages in `email_messages` are claimed in batches by `claim_due_emails()` (row locks, so two runs never send the same message) and recorded with `mark_email_result()`. Failures back off and retry (up to 8 attempts). Each send carries an `Idempotency-Key`, so a retry never produces a duplicate email.
+  - Sent straight after the guest's response (Next.js `after()`): after the Stripe webhook, after a free registration, and after a contact-form message.
+  - Safety net: `/api/cron/emails` (Vercel Cron, once a day on the Hobby plan; it requires `Authorization: Bearer CRON_SECRET`).
+  - Refunded or cancelled tickets are never emailed (they're recorded as skipped, not as failures).
+- **Emails:** order confirmation to the buyer; one ticket per guest, with an inline QR image and the backup code (XXXX-XXXX); a "ticket resent" version; and a contact-form notification to `CONTACT_INBOX_EMAIL`, with reply-to set to the sender. All guest-supplied text is HTML-escaped; every email also has a plain-text version.
+- **QR codes:** the ticket credential (43 characters, stored only as a hash plus an encrypted copy) is drawn as a QR code on the private order page and in the ticket email.
+- **Camera check-in:** "Scan tickets" on each event's check-in page. It uses the phone's back camera and decodes on the device (jsQR, which works in iPhone Safari and Android Chrome). Only the scanned code goes to the server. The result is shown large and colour-coded (checked in / already checked in, with the first time / wrong event / refunded / cancelled / not a ticket), with a vibration on phones that support it. Manual search stays below it as the fallback.
+- `RESEND_API_BASE` (test override) is honoured only for a localhost address and never in production unless `PYNKPOURS_LOCAL_TEST=true`.
+
+### Bug found and fixed by the new tests
+- Ticket emails failed with "ticket not found". The lookup asked the database for an attendee and ticket type through a link that doesn't exist directly (the tables use combined keys). Fixed by looking each one up on its own. The order confirmation was unaffected.
+
+### New tests
+- **Unit (`tests/unit/email.test.ts`):** template escaping and wording; the QR PNG decodes back to the exact credential; the Resend request format (idempotency key, base64 inline attachment); the test override is ignored in production and for any non-localhost address; provider errors raise so the outbox retries.
+- **Browser (`tests/e2e/tickets.spec.ts`):**
+  1. A free registration emails a confirmation to the buyer and a QR ticket to the guest. The QR in the email decodes to a valid credential, and both messages are recorded as sent exactly once.
+  2. **Real camera path:** Chromium's fake camera is fed a video of the QR code *taken from the guest's email*. Scanning checks the guest in (verified in the database), then the same code is reported as "Already checked in" with the first check-in time.
+  3. The same ticket scanned at another event's door is refused as "Ticket for a different event".
+  4. The email cron endpoint refuses a missing or wrong token and works with the right one.
+  5. A contact-form message notifies the inbox, with reply-to set to the sender.
+
+### Still to verify
+- On the preview, after deploy: emails arrive from the real Resend account, and scanning works on a real phone.
+- iPhone Safari camera on a real device (covered in Stage F device testing).
+
+### Test totals after Stage E (local)
+- 212 unit and database tests passed
+- 18 integration tests passed (4 skipped: the real-Stripe contract, which needs Stripe network access)
+- **154 browser tests passed**, 40 skipped by design (desktop-only or mobile-only), **0 failed**
+
+### Preview note
+The preview Vercel project has no `RESEND_API_KEY` or `EMAIL_FROM`. Emails there stay queued (nothing is sent) until those are added. Production has them.

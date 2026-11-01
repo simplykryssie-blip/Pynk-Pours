@@ -4,6 +4,7 @@ import { envSubset } from "@/server/env";
 import { handleStripeEvent, LiveModeRefused } from "@/server/payments/webhook";
 import { stripeClient, webhookSecret } from "@/server/payments/stripe";
 import { serviceDb } from "@/server/supabase";
+import { sendQueuedEmailsSoon } from "@/server/email/outbox";
 
 /**
  * Stripe webhook endpoint — the ONLY place payment is confirmed and tickets
@@ -31,6 +32,8 @@ export async function POST(req: Request) {
       credentialKey: envSubset(["TICKET_CREDENTIAL_KEY"]).TICKET_CREDENTIAL_KEY,
       allowLive: process.env.STRIPE_ALLOW_LIVE === "true",
     });
+    // Confirmation + ticket emails were queued by fulfilment; send them after replying to Stripe.
+    sendQueuedEmailsSoon();
     return Response.json({ received: true, ...result });
   } catch (e) {
     if (e instanceof LiveModeRefused) return new Response("Live mode disabled", { status: 400 });

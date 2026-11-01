@@ -6,6 +6,7 @@ import {
 import { deriveRegistration } from "@/lib/registration";
 import { getEventBySlug, getTicketOptions } from "../data/events";
 import { withinRateLimit } from "../request";
+import { sendQueuedEmailsSoon } from "../email/outbox";
 import { serviceDb } from "../supabase";
 import type { FormState } from "./types";
 
@@ -28,12 +29,21 @@ export async function submitContact(_prev: FormState, form: FormData): Promise<F
   }
   if (!(await withinRateLimit("contact", 5, 600))) return { status: "error", message: RATE_LIMITED, values };
 
-  const { error } = await serviceDb().from("contact_submissions").insert(parsed.data);
-  if (error) {
-    console.error(`[contact] insert failed: ${error.message}`);
+  const db = serviceDb();
+  const { data: saved, error } = await db.from("contact_submissions").insert(parsed.data).select("id").single();
+  if (error || !saved) {
+    console.error(`[contact] insert failed: ${error?.message}`);
     return { status: "error", message: GENERIC_ERROR, values };
   }
-  // Staff notification email is sent via the outbox in Stage E.
+  // Notify the team (best effort: the message is already safely stored in the admin inbox).
+  const inbox = process.env.CONTACT_INBOX_EMAIL;
+  if (inbox) {
+    const { error: qErr } = await db.from("email_messages").insert({
+      dedupe_key: `contact:${saved.id}`, kind: "contact_notification", to_email: inbox.trim().toLowerCase(),
+    });
+    if (qErr) console.error(`[contact] notification not queued: ${qErr.message}`);
+    else sendQueuedEmailsSoon();
+  }
   return { status: "success", message: "Thank you — your message has been sent. We'll be in touch soon." };
 }
 

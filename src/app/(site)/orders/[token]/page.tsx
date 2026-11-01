@@ -8,7 +8,8 @@ import { CalendarIcon, CheckIcon } from "@/components/ui/icons";
 import { Badge, Container, Eyebrow, LinkButton } from "@/components/ui/primitives";
 import { formatEventTime } from "@/lib/datetime";
 import { formatMoney } from "@/lib/money";
-import { hashCredential } from "@/server/credentials";
+import { decryptCredential, hashCredential } from "@/server/credentials";
+import { qrSvg } from "@/server/qr";
 import { isOrderToken } from "@/server/checkout/tokens";
 import { serviceDb } from "@/server/supabase";
 
@@ -22,7 +23,8 @@ export default function OrderPage(props: PageProps<"/orders/[token]">) {
   );
 }
 
-type Att = { position: number; full_name: string; email: string; ticket_types: { name: string } | null; tickets: { manual_code: string; status: string; checked_in_at: string | null } | { manual_code: string; status: string; checked_in_at: string | null }[] | null };
+type Tkt = { manual_code: string; status: string; checked_in_at: string | null; credential_ciphertext: string };
+type Att = { position: number; full_name: string; email: string; ticket_types: { name: string } | null; tickets: Tkt | Tkt[] | null };
 
 /**
  * The guest's private order page (no login): access is by the unguessable token
@@ -34,7 +36,7 @@ async function Order({ params, searchParams }: PageProps<"/orders/[token]">) {
   if (!isOrderToken(token)) notFound();
   const { data: o } = await serviceDb()
     .from("orders")
-    .select("id, order_number, status, total_cents, amount_refunded_cents, currency, purchaser_name, purchaser_email, expires_at, needs_review, events(title, slug, starts_at, ends_at, timezone, is_online, venue_name), order_items(ticket_type_name, quantity, unit_price_cents, admits_per_unit), attendees(position, full_name, email, ticket_types(name), tickets(manual_code, status, checked_in_at))")
+    .select("id, order_number, status, total_cents, amount_refunded_cents, currency, purchaser_name, purchaser_email, expires_at, needs_review, events(title, slug, starts_at, ends_at, timezone, is_online, venue_name), order_items(ticket_type_name, quantity, unit_price_cents, admits_per_unit), attendees(position, full_name, email, ticket_types(name), tickets(manual_code, status, checked_in_at, credential_ciphertext))")
     .eq("public_token_hash", hashCredential(token))
     .maybeSingle();
   if (!o) notFound();
@@ -43,6 +45,20 @@ async function Order({ params, searchParams }: PageProps<"/orders/[token]">) {
   const attendees = ((o.attendees ?? []) as unknown as Att[]).sort((a, b) => a.position - b.position);
   const items = o.order_items as { ticket_type_name: string; quantity: number; unit_price_cents: number; admits_per_unit: number }[];
   const tz = ev.timezone ?? "America/Chicago";
+  // QR per valid ticket: the credential is decrypted on the server only; the page gets an SVG.
+  const qrs = new Map<string, string>();
+  const key = process.env.TICKET_CREDENTIAL_KEY;
+  if (key && o.status !== "refunded") {
+    await Promise.all(attendees.map(async (a) => {
+      const t = Array.isArray(a.tickets) ? a.tickets[0] : a.tickets;
+      if (!t || t.status !== "valid") return;
+      try {
+        qrs.set(t.manual_code, await qrSvg(decryptCredential(t.credential_ciphertext, key)));
+      } catch (e) {
+        console.error(`[order] QR for ticket ${t.manual_code} unavailable: ${(e as Error).message}`);
+      }
+    }));
+  }
 
   const summary = (
     <div className="space-y-2 border-t border-white/10 pt-4 text-sm text-pp-cream/85">
@@ -95,21 +111,32 @@ async function Order({ params, searchParams }: PageProps<"/orders/[token]">) {
         <CheckIcon width={48} height={48} className="text-pp-pink" />
         <Eyebrow>Order #{o.order_number}</Eyebrow>
         <h1 className="font-serif text-4xl text-pp-cream">{o.status === "refunded" ? "This order was refunded." : "You're registered!"}</h1>
-        <p className="text-pp-cream/80">We&apos;ll email your confirmation to {o.purchaser_email}. Each guest&apos;s ticket code is below — keep this page for your records.</p>
+        <p className="text-pp-cream/80">We&apos;ve emailed your confirmation to {o.purchaser_email}, and each guest gets their own ticket by email. Every ticket&apos;s QR code is also below. Keep this page private.</p>
         <ul className="space-y-3">
           {attendees.map((a) => {
             const t = Array.isArray(a.tickets) ? a.tickets[0] : a.tickets;
             return (
-              <li key={a.position} className="flex flex-wrap items-center justify-between gap-3 border border-white/15 p-4" data-testid="ticket">
-                <div>
-                  <p className="font-semibold text-pp-cream">{a.full_name}</p>
-                  <p className="text-sm text-pp-cream/70">{a.ticket_types?.name}</p>
+              <li key={a.position} id={t ? `ticket-${t.manual_code}` : undefined} className="space-y-4 border border-white/15 p-4" data-testid="ticket">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-pp-cream">{a.full_name}</p>
+                    <p className="text-sm text-pp-cream/70">{a.ticket_types?.name}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {t && <code className="rounded-sm bg-white/10 px-2 py-1 font-mono text-pp-cream">{t.manual_code}</code>}
+                    {t && t.status !== "valid" && <Badge tone="pink">{t.status}</Badge>}
+                    {t?.checked_in_at && <Badge tone="muted">Checked in</Badge>}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {t && <code className="rounded-sm bg-white/10 px-2 py-1 font-mono text-pp-cream">{t.manual_code}</code>}
-                  {t && t.status !== "valid" && <Badge tone="pink">{t.status}</Badge>}
-                  {t?.checked_in_at && <Badge tone="muted">Checked in</Badge>}
-                </div>
+                {t && qrs.get(t.manual_code) && (
+                  <figure className="mx-auto w-full max-w-[240px]">
+                    {/* SVG produced by the qrcode library from server data only. */}
+                    <div role="img" aria-label={`Ticket QR code for ${a.full_name}`} data-testid="ticket-qr"
+                      className="rounded-sm bg-white p-2 [&_svg]:h-auto [&_svg]:w-full"
+                      dangerouslySetInnerHTML={{ __html: qrs.get(t.manual_code)! }} />
+                    <figcaption className="mt-2 text-center text-xs text-pp-cream/70">Show this at the door. Turn your screen brightness up.</figcaption>
+                  </figure>
+                )}
               </li>
             );
           })}

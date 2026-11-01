@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { CheckInButton } from "@/components/admin/forms/CheckInButton";
+import { QrScanner } from "@/components/admin/QrScanner";
 import { Card, EmptyState, PageHeader, smallButton, Stat, StatusBadge } from "@/components/admin/ui";
 import { formatEventTime } from "@/lib/datetime";
 import { requireStaff } from "@/server/auth/staff";
@@ -31,16 +32,19 @@ export default async function CheckInEvent({ params, searchParams }: PageProps<"
   type Recent = { scanned_at: string; result: string; method: string; attendee_name: string | null; ticket_type: string | null; scanned_by: string | null; voided: boolean };
   return (
     <AdminShell staff={staff}>
-      <PageHeader title={event.title} back={{ href: "/admin/check-in", label: "Check-in" }} subtitle="Manual lookup. Camera QR scanning is added with digital tickets (Stage E)." />
+      <PageHeader title={event.title} back={{ href: "/admin/check-in", label: "Check-in" }} subtitle="Scan ticket QR codes with your phone camera, or search by name, email or code." />
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Checked in" value={attendance.checked_in} hint={`of ${attendance.valid_tickets} tickets`} />
         <Stat label="Remaining" value={attendance.valid_tickets - attendance.checked_in} />
         {attendance.by_type.slice(0, 2).map((t) => <Stat key={t.ticket_type} label={t.ticket_type} value={`${t.checked_in}/${t.valid}`} />)}
       </div>
+      <Card title="Scan tickets" region className="mb-6">
+        <QrScanner eventId={eventId} timeZone={tz} />
+      </Card>
       <Card title="Find a guest">
         <form className="flex gap-2" role="search">
           <label htmlFor="ci-q" className="sr-only">Name, email, ticket code or order number</label>
-          <input id="ci-q" name="q" defaultValue={q} autoFocus placeholder="Name, email, ticket code or order #" className="w-full rounded-sm border border-pp-black/20 px-3 py-3 text-base" />
+          <input id="ci-q" name="q" defaultValue={q} placeholder="Name, email, ticket code or order #" className="w-full rounded-sm border border-pp-black/20 px-3 py-3 text-base" />
           <button type="submit" className={smallButton("primary")}>Search</button>
         </form>
         {q && (

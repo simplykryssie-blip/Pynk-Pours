@@ -5,6 +5,7 @@ import { CHECKOUT_ERRORS, parseCheckoutForm } from "@/lib/checkout-schema";
 import { looksAutomated } from "@/lib/validation";
 import { getEventBySlug } from "../data/events";
 import { envSubset } from "../env";
+import { sendQueuedEmailsSoon } from "../email/outbox";
 import { fulfilOrder } from "../payments/fulfillment";
 import { checkoutEnabled, stripeClient } from "../payments/stripe";
 import { withinRateLimit } from "../request";
@@ -65,6 +66,7 @@ export async function startCheckout(_prev: CheckoutState, form: FormData): Promi
   if (o.total_cents === 0) {
     const { TICKET_CREDENTIAL_KEY } = envSubset(["TICKET_CREDENTIAL_KEY"]);
     await fulfilOrder(db, o.order_id, { provider: "free" }, TICKET_CREDENTIAL_KEY);
+    sendQueuedEmailsSoon();
     redirect(orderUrl);
   }
 

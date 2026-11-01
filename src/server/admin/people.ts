@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { staffForAction, type StaffRole } from "../auth/staff";
+import { hashCredential, isWellFormedCredential } from "../credentials";
 import { serviceDb } from "../supabase";
 import { dbMessage, invalid, isUuid, type ActionState } from "./common";
 
@@ -50,6 +51,33 @@ export async function manualCheckIn(_prev: ActionState, form: FormData): Promise
   };
   revalidatePath(`/admin/check-in/${eventId}`);
   return messages[r.result] ?? { status: "error", message: "Unexpected result." };
+}
+
+// ---------------------------------------------------------------- check-in (camera scan)
+export interface ScanResult {
+  result: "accepted" | "already_checked_in" | "invalid" | "wrong_event" | "refunded" | "cancelled" | "error";
+  attendeeName?: string;
+  ticketType?: string;
+  checkedInAt?: string | null;
+  message?: string;
+}
+
+/**
+ * A QR code holds the ticket's random credential. Only its SHA-256 hash is sent
+ * to the database, which checks the ticket in atomically (one accepted scan per
+ * ticket) and logs every attempt, including unknown codes.
+ */
+export async function scanCheckIn(eventId: string, scanned: string): Promise<ScanResult> {
+  const staff = await staffForAction(["owner", "admin", "checkin"]);
+  if ("error" in staff) return { result: "error", message: staff.error };
+  if (!isUuid(eventId)) return { result: "error", message: "Invalid request." };
+  const credential = typeof scanned === "string" ? scanned.trim() : "";
+  const hash = isWellFormedCredential(credential) ? hashCredential(credential) : "not-a-ticket";
+  const { data, error } = await staff.db.rpc("check_in_by_credential", { p_event_id: eventId, p_credential_hash: hash });
+  if (error) return { result: "error", message: dbMessage(error) };
+  const r = data as { result: ScanResult["result"]; ticket?: { attendee_name?: string; ticket_type?: string; checked_in_at?: string | null } | null };
+  revalidatePath(`/admin/check-in/${eventId}`);
+  return { result: r.result, attendeeName: r.ticket?.attendee_name, ticketType: r.ticket?.ticket_type, checkedInAt: r.ticket?.checked_in_at ?? null };
 }
 
 // ---------------------------------------------------------------- staff (owner only)
