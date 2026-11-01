@@ -9,7 +9,7 @@
  *     publish guard and audit triggers would otherwise reject historical rows.
  */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Client, Pool } from "pg";
@@ -20,7 +20,11 @@ import {
   type TestDb,
 } from "./helpers";
 
-const BIN = process.env.PGBIN ?? "/usr/lib/postgresql/16/bin";
+const BIN = process.env.PGBIN ?? (() => {
+  // Newest installed PostgreSQL (matches scripts/db/local-pg.sh).
+  const dirs = readdirSync("/usr/lib/postgresql").filter((d) => /^\d+$/.test(d)).sort((a, b) => Number(a) - Number(b));
+  return `/usr/lib/postgresql/${dirs.at(-1)}/bin`;
+})();
 const conn = ["-h", "127.0.0.1", "-p", PG_PORT, "-U", "postgres"];
 
 let src: TestDb;

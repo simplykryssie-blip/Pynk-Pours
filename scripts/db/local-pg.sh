@@ -4,7 +4,11 @@
 # Never points at a hosted database.
 set -euo pipefail
 
-PGBIN="${PGBIN:-/usr/lib/postgresql/16/bin}"
+# Use PGBIN if given, else the newest installed PostgreSQL (16+).
+if [ -z "${PGBIN:-}" ]; then
+  PGBIN=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)
+fi
+[ -x "$PGBIN/initdb" ] || { echo "PostgreSQL server binaries not found (set PGBIN)" >&2; exit 1; }
 DATA_DIR="${PP_PGDATA:-/tmp/pynkpours-local-pg}"
 PORT="${PP_PGPORT:-54329}"
 SOCK_DIR="/tmp"

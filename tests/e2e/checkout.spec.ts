@@ -224,3 +224,39 @@ test("over-selection is refused server-side even with a crafted link", async ({ 
   await page.goto(`/events/${SLUG}/checkout?sel=${vip}:5`);
   await expect(page.getByText(/can be purchased right now/)).toBeVisible();
 });
+
+test("free registration: no Stripe redirect, tickets issued, inventory enforced, audited", async ({ page }) => {
+  const slug = `sample-free-${randomUUID().slice(0, 6)}`;
+  const tag = randomUUID().slice(0, 8);
+  await localDb(async (c) => {
+    const ev = (await c.query(`insert into public.events (slug, title, short_description, starts_at, ends_at, timezone, venue_name, registration_mode)
+      values ($1, 'SAMPLE Free Mixer (not real)', 'SAMPLE', now() + interval '20 day', now() + interval '20 day 2 hour', 'America/Chicago', 'Sample', 'tickets') returning id`, [slug])).rows[0].id;
+    await c.query("insert into public.ticket_types (event_id, name, price_cents, capacity) values ($1, 'Free RSVP', 0, 2)", [ev]);
+    await c.query("update public.events set status = 'published' where id = $1", [ev]);
+  });
+  await page.goto(`/events/${slug}`);
+  const group = page.getByRole("group", { name: "Quantity for Free RSVP" });
+  await expect(group.locator("output")).toHaveText("1"); // single tier preselected
+  await group.getByRole("button", { name: "More Free RSVP" }).click();
+  await expect(group.getByRole("button", { name: "More Free RSVP" })).toBeDisabled(); // capacity 2
+  await page.getByRole("link", { name: "Continue" }).click();
+  const main = page.getByRole("main");
+  await main.getByRole("textbox", { name: "Full name", exact: true }).fill(`Free ${tag}`);
+  await main.getByRole("textbox", { name: "Email", exact: true }).fill(`buyer-${tag}@example.test`);
+  for (let i = 0; i < 2; i++) {
+    await page.getByTestId(`guest-${i}`).getByRole("textbox", { name: "Guest name" }).fill(`Free Guest ${i + 1}`);
+    await page.getByTestId(`guest-${i}`).getByRole("textbox", { name: "Guest email" }).fill(`free${i}-${tag}@example.test`);
+  }
+  await page.getByText(/I've read the event details/).click();
+  await page.waitForTimeout(2700);
+  await page.getByRole("button", { name: "Complete registration" }).click();
+  await expect(page).toHaveURL(/\/orders\/[A-Za-z0-9_-]{43}$/); // straight to the order — no payment page
+  await expect(page.getByRole("heading", { name: "You're registered!" })).toBeVisible();
+  await expect(page.getByTestId("ticket")).toHaveCount(2);
+  const o = await orderByBuyer(tag);
+  expect(o).toMatchObject({ status: "paid", total_cents: 0, stripe_checkout_session_id: null });
+  const audit = await localDb(async (c) => (await c.query("select metadata from public.audit_log where action = 'order.paid' and entity_id = $1", [o.id])).rows);
+  expect(audit).toEqual([{ metadata: { provider: "free", tickets: 2 } }]);
+  await page.goto(`/events/${slug}`);
+  await expect(page.getByRole("complementary", { name: "Registration" })).toContainText("Sold out");
+});

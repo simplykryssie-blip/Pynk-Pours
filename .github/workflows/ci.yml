@@ -18,10 +18,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Install Postgres 16 (local, disposable — for migration/RLS tests)
+      - name: Install PostgreSQL server binaries (local, disposable — for migration/RLS tests)
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y postgresql-16
+          sudo apt-get install -y postgresql
+          ls /usr/lib/postgresql
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
