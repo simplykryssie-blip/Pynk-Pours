@@ -5,17 +5,33 @@ import { loadSafely } from "@/components/events/EventSections";
 import { EventView } from "@/components/events/EventView";
 import { Container, Eyebrow } from "@/components/ui/primitives";
 import { deriveRegistration } from "@/lib/registration";
-import { DataUnavailableError, getEventBySlug, getGallery, getTicketOptions } from "@/server/data/events";
+import { DEFAULT_SHARE_IMAGE } from "@/lib/share";
+import { DataUnavailableError, eventImageUrl, getEventBySlug, getGallery, getTicketOptions } from "@/server/data/events";
 import { checkoutEnabled } from "@/server/payments/stripe";
 
 export async function generateMetadata({ params }: PageProps<"/events/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   const event = await loadSafely(() => getEventBySlug(slug));
   if (event instanceof DataUnavailableError || !event) return { title: "Event" };
+  const cover = eventImageUrl(event.cover_image_path);
   return {
     title: event.title,
     description: event.short_description ?? undefined,
-    openGraph: { title: event.title, description: event.short_description ?? undefined, type: "website" },
+    // Setting openGraph here replaces the site-wide default, so the image must be
+    // restated: the event's cover photo if it has one, otherwise the PynkPours logo.
+    openGraph: {
+      title: event.title,
+      description: event.short_description ?? undefined,
+      type: "website",
+      siteName: "PynkPours",
+      images: [cover ? { url: cover, alt: event.cover_image_alt ?? event.title } : DEFAULT_SHARE_IMAGE],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: event.title,
+      description: event.short_description ?? undefined,
+      images: [cover ?? DEFAULT_SHARE_IMAGE.url],
+    },
   };
 }
 

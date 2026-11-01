@@ -10,6 +10,19 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: { default: "PynkPours", template: "%s | PynkPours" },
   description: "SIP • CONNECT • CREATE — Where ideas meet opportunity.",
+  // Link previews (iMessage, WhatsApp, Facebook, LinkedIn, X). The image itself is
+  // src/app/opengraph-image.png / twitter-image.png (the official logo on black).
+  openGraph: {
+    type: "website",
+    siteName: "PynkPours",
+    title: "PynkPours",
+    description: "SIP • CONNECT • CREATE — Where ideas meet opportunity.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PynkPours",
+    description: "SIP • CONNECT • CREATE — Where ideas meet opportunity.",
+  },
   // Not indexable until the owner approves launch.
   robots: { index: false, follow: false },
 };

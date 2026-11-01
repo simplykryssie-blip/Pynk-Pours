@@ -55,5 +55,5 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Every page (for the admin-host redirect), but not static assets or API routes.
-  matcher: ["/((?!api/|_next/static|_next/image|brand/|icon.png|apple-icon.png|favicon.ico|robots.txt|sitemap.xml).*)"],
+  matcher: ["/((?!api/|_next/static|_next/image|brand/|icon.png|apple-icon.png|favicon.ico|opengraph-image|twitter-image|robots.txt|sitemap.xml).*)"],
 };
