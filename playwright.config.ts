@@ -23,10 +23,19 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"], viewport: { width: 375, height: 812 } } },
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } } },
   ],
-  webServer: {
-    command: `npx next start -p ${PORT}`,
-    url: `http://localhost:${PORT}`,
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
+  webServer: [
+    {
+      command: `npx next start -p ${PORT}`,
+      url: `http://localhost:${PORT}`,
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+    {
+      // LOCAL STRIPE TEST DOUBLE (not Stripe) — see tests/support/stripe-double.mts
+      command: "npx tsx --env-file=.env.local tests/support/stripe-double.mts",
+      url: "http://127.0.0.1:12111/__test/health",
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+  ],
 });

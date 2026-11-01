@@ -1,32 +1,10 @@
-import { mkdirSync } from "node:fs";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import sharp from "sharp";
 import { asStaff, signInFully } from "../e2e/admin-auth";
 import { localDb } from "../e2e/support";
+import { shooter } from "./shot";
 
-const OUT = "docs/qa/stage-c";
-mkdirSync(OUT, { recursive: true });
-let step = 0;
-
-/** Show a caption bar (visible in the video and screenshots), then capture. */
-async function shot(page: Page, caption: string, opts: { fullPage?: boolean } = {}) {
-  step += 1;
-  await page.evaluate(({ text, n }) => {
-    document.getElementById("demo-caption")?.remove();
-    const el = document.createElement("div");
-    el.id = "demo-caption";
-    el.textContent = `${n}. ${text}`;
-    Object.assign(el.style, {
-      position: "fixed", left: "50%", bottom: "16px", transform: "translateX(-50%)", zIndex: "99999",
-      background: "rgba(11,11,11,.92)", color: "#f7f1ed", padding: "10px 18px", borderRadius: "6px",
-      font: "600 15px system-ui, sans-serif", border: "1px solid #c8a45d", maxWidth: "92vw", textAlign: "center",
-      pointerEvents: "none",
-    });
-    document.body.appendChild(el);
-  }, { text: caption, n: step });
-  await page.waitForTimeout(900);
-  await page.screenshot({ path: `${OUT}/${String(step).padStart(2, "0")}-${caption.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 50)}.png`, fullPage: opts.fullPage });
-}
+const shot = shooter("docs/qa/stage-c");
 
 test("PynkPours admin walkthrough", async ({ page, browser }) => {
   // 1) Sign in: password, then the 6-digit authenticator code.

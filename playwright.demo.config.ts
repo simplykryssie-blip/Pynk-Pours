@@ -13,5 +13,8 @@ export default defineConfig({
     video: { mode: "on", size: { width: 1280, height: 800 } },
     launchOptions: { slowMo: 120 },
   },
-  webServer: { command: "npx next start -p 3123", url: "http://localhost:3123", reuseExistingServer: true, timeout: 60_000 },
+  webServer: [
+    { command: "npx next start -p 3123", url: "http://localhost:3123", reuseExistingServer: true, timeout: 60_000 },
+    { command: "npx tsx --env-file=.env.local tests/support/stripe-double.mts", url: "http://127.0.0.1:12111/__test/health", reuseExistingServer: true, timeout: 30_000 },
+  ],
 });

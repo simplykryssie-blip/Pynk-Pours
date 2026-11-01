@@ -1,16 +1,19 @@
+import { TicketSelector } from "@/components/checkout/TicketSelector";
 import { InterestForm } from "@/components/forms/InterestForm";
 import { LinkButton } from "@/components/ui/primitives";
 import { formatEventDate } from "@/lib/datetime";
 import { formatMoney } from "@/lib/money";
 import type { Registration } from "@/lib/registration";
-import type { PublicEvent } from "@/server/data/events";
+import type { PublicEvent, TicketOption } from "@/server/data/events";
 
 /**
  * The event page's call to action, driven by deriveRegistration().
  * Online checkout is enabled in Stage D; until then on-sale events collect
  * "notify me when registration opens" sign-ups instead of taking payment.
  */
-export function RegistrationPanel({ event, registration }: { event: PublicEvent; registration: Registration }) {
+export function RegistrationPanel({ event, registration, options = [], checkout = false }: {
+  event: PublicEvent; registration: Registration; options?: TicketOption[]; checkout?: boolean;
+}) {
   const heading = "text-sm font-semibold tracking-[0.2em] text-pp-gold uppercase";
   switch (registration.state) {
     case "coming_soon":
@@ -22,6 +25,17 @@ export function RegistrationPanel({ event, registration }: { event: PublicEvent;
         </div>
       );
     case "on_sale":
+      if (checkout) {
+        return (
+          <div className="space-y-4">
+            <p className={heading}>Get tickets</p>
+            <TicketSelector slug={event.slug} maxAdmissions={event.max_tickets_per_order}
+              tiers={options.filter((o) => o.display_state === "on_sale").map((o) => ({
+                id: o.id, name: o.name, price_cents: o.price_cents, currency: o.currency, admits_per_unit: o.admits_per_unit, max_purchasable: o.max_purchasable,
+              }))} />
+          </div>
+        );
+      }
       return (
         <div className="space-y-4">
           <p className={heading}>Tickets</p>

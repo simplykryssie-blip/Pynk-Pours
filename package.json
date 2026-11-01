@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --project unit --project db",
     "test:unit": "vitest run --project unit",
     "test:db": "vitest run --project db",
     "db:start": "scripts/db/local-pg.sh start",
@@ -19,7 +19,8 @@
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset --local",
     "seed:sample": "tsx scripts/db/seed-local-sample.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:integration": "vitest run --project integration"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -29,6 +30,7 @@
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",
     "sharp": "^0.35.5",
+    "stripe": "^23.1.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

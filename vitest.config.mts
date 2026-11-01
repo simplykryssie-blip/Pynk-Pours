@@ -30,6 +30,17 @@ export default defineConfig({
           hookTimeout: 120_000,
         },
       },
+      {
+        extends: true,
+        test: {
+          // Needs the local Supabase stack: `npm run supabase:start`
+          name: "integration",
+          include: ["tests/integration/**/*.test.ts"],
+          environment: "node",
+          testTimeout: 60_000,
+          fileParallelism: false,
+        },
+      },
     ],
   },
 });

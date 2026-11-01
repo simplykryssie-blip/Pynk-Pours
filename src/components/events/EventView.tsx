@@ -13,12 +13,13 @@ import { eventImageUrl, type GalleryImage, type PublicEvent, type TicketOption }
  * The public event page body. Shared by the live page and the admin preview so
  * staff see exactly what visitors will see.
  */
-export function EventView({ event, options, registration, gallery, preview = false }: {
+export function EventView({ event, options, registration, gallery, preview = false, checkout = false }: {
   event: PublicEvent;
   options: TicketOption[];
   registration: Registration;
   gallery: GalleryImage[];
   preview?: boolean;
+  checkout?: boolean;
 }) {
   const when = eventWhen(event);
   const hasDate = Boolean(event.starts_at && event.timezone);
@@ -65,7 +66,7 @@ export function EventView({ event, options, registration, gallery, preview = fal
                   <p className="text-sm">Registration controls for this state appear here once the event is published.</p>
                 </div>
               ) : (
-                <RegistrationPanel event={event} registration={registration} />
+                <RegistrationPanel event={event} registration={registration} options={options} checkout={checkout} />
               )}
             </div>
           </aside>

@@ -269,7 +269,7 @@ test.describe.serial("event lifecycle: create → tickets → images → preview
     await expect(page.getByText("Event published")).toBeVisible();
     await page.goto(`/events/${slug}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
-    await expect(page.getByRole("complementary", { name: "Registration" })).toContainText("From $65.00");
+    await expect(page.getByRole("complementary", { name: "Registration" })).toContainText("General Admission$65.00");
     await expect(page.locator("img[src*='event-media']").first()).toBeVisible(); // uploaded cover
     await page.goto("/events");
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
@@ -356,7 +356,7 @@ test.describe("registrations & attendees", () => {
     await form.getByRole("button", { name: "Save attendee" }).click();
     await expect(form.getByText("Attendee updated.")).toBeVisible();
     await page.reload();
-    await expect(page.getByText("Sample Guest Blake Corrected")).toBeVisible();
+    await expect(page.getByText("Sample Guest Blake Corrected").first()).toBeVisible();
   });
 });
 

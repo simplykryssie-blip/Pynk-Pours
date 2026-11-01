@@ -34,8 +34,9 @@ test("on-sale event: event-timezone times, tiers, optional VIP, notify sign-up",
   await expect(tickets.getByRole("heading", { name: "Sample VIP" })).toBeVisible();
   await expect(tickets).toContainText("$25.00");
   await expect(tickets).toContainText("$60.00");
-  await expect(page.getByRole("complementary", { name: "Registration" })).toContainText("From $25.00");
-  await expect(page.getByRole("button", { name: /notify me when registration opens/i })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Registration" })).toContainText("Sample General Admission$25.00");
+  // Online checkout is enabled locally: the ticket selector replaces "notify me".
+  await expect(page.getByRole("group", { name: "Quantity for Sample General Admission" })).toBeVisible();
   await expect(page.getByRole("link", { name: /add to calendar/i })).toHaveAttribute("href", /\/calendar$/);
   // Agenda, FAQ and details render from the database.
   await expect(page.getByRole("heading", { name: "Schedule" })).toBeVisible();

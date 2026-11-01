@@ -89,6 +89,8 @@ async function main() {
     inclusions: ["Sample inclusion one", "Sample inclusion two"] });
   await tier(social, { name: "Sample VIP", price_cents: 6000, capacity: 10, sort_order: 1, max_per_order: 2,
     description: "Optional premium tier (VIP is never required)." });
+  await tier(social, { name: "Sample Table for 4", price_cents: 20000, capacity: 3, sort_order: 2, max_per_order: 1, admits_per_unit: 4,
+    description: "One reserved table; each of the 4 guests gets their own ticket.", inclusions: ["Reserved table", "4 individual tickets"] });
   await publish(social);
 
   // 3) SAMPLE sold-out event with waitlist (fictional).

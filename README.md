@@ -2,7 +2,7 @@
 
 Event and ticketing platform for **PynkPours** (SIP • CONNECT • CREATE).
 
-**Status:** Stage C (admin dashboard) complete, **local development only, not deployed**. See `docs/STAGE_A_TECHNICAL_REVIEW.md` for the architecture and plan, and `docs/QA_REPORT.md` for test evidence for each stage.
+**Status:** Stage D (guest checkout, Stripe TEST mode) built and tested locally against a Stripe test double; the real Stripe test-card run is pending network access + test keys. **Not deployed.** See `docs/STAGE_A_TECHNICAL_REVIEW.md` for the architecture and plan, and `docs/QA_REPORT.md` for test evidence for each stage.
 
 ## Stack
 - Next.js 16 (App Router) + React 19 + TypeScript (strict) + Tailwind CSS 4
@@ -96,3 +96,8 @@ supabase/migrations/      schema, RLS, trusted RPCs, scheduling
 tests/unit, tests/db      unit + database test suites
 tests/e2e                 Playwright end-to-end tests
 ```
+
+## Checkout & payments (Stage D)
+- Guest checkout, no accounts. Each guest gets their own ticket; a table admits N guests and issues N tickets.
+- Tickets are issued **only** by verified, signed Stripe webhooks (`/api/stripe/webhook`). Processing is idempotent.
+- Local tests use `tests/support/stripe-double.mts`, a **local Stripe test double (not Stripe)**. The real test-mode demo is `scripts/stripe/real-test-demo.sh`; it needs Stripe network access and a `sk_test_` key in the environment.

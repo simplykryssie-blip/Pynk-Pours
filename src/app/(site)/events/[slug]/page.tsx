@@ -6,6 +6,7 @@ import { EventView } from "@/components/events/EventView";
 import { Container, Eyebrow } from "@/components/ui/primitives";
 import { deriveRegistration } from "@/lib/registration";
 import { DataUnavailableError, getEventBySlug, getGallery, getTicketOptions } from "@/server/data/events";
+import { checkoutEnabled } from "@/server/payments/stripe";
 
 export async function generateMetadata({ params }: PageProps<"/events/[slug]">): Promise<Metadata> {
   const { slug } = await params;
@@ -44,7 +45,7 @@ async function EventContent({ params }: { params: PageProps<"/events/[slug]">["p
   if (data instanceof DataUnavailableError) return <Unavailable />;
   return (
     <EventView event={event} options={data.options} gallery={data.gallery}
-      registration={deriveRegistration(event, data.options)} />
+      registration={deriveRegistration(event, data.options)} checkout={checkoutEnabled()} />
   );
 }
 

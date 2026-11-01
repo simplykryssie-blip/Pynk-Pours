@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { EventHeader } from "@/components/admin/EventHeader";
+import { OpButton } from "@/components/admin/forms/OpButton";
+import { refundCancelledEvent } from "@/server/admin/refunds";
 import { Card, EmptyState, smallButton, Stat, StatusBadge, TableWrap } from "@/components/admin/ui";
 import { formatEventDate, formatEventTime } from "@/lib/datetime";
 import { adminEvent, eventAttendees, eventInterest } from "@/server/admin/queries";
@@ -21,6 +23,13 @@ export default async function EventRegistrationsPage({ params, searchParams }: P
   return (
     <AdminShell staff={staff}>
       <EventHeader event={event} active="registrations" done={sp.done} />
+      {event.status === "cancelled" && valid.length > 0 && (
+        <Card title="Event cancelled — refund guests" className="mb-6">
+          <p className="mb-3 text-sm text-pp-black/70">Refund every remaining paid ticket for this event through Stripe. Refunded tickets can no longer be checked in.</p>
+          <OpButton action={refundCancelledEvent} fields={{ event_id: id }} label="Refund all orders" variant="danger" pendingLabel="Refunding…"
+            confirm="Refund ALL paid orders for this cancelled event? This cannot be undone." />
+        </Card>
+      )}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Attendees" value={valid.length} />
         <Stat label="Checked in" value={valid.filter((a) => a.checked_in_at).length} />

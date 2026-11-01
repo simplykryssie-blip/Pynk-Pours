@@ -268,3 +268,78 @@ These use a **real password and authenticator code**. The test suite computes th
 
 ### Owner actions
 - Review the walkthrough screenshots and videos, and decide whether to approve **Stage D: guest checkout with Stripe in test mode**. That stage needs a Stripe account, created by you and kept in test mode.
+
+---
+
+## Stage D: Guest checkout with Stripe (TEST mode only)
+
+**Environment:** local workspace only. Nothing has been deployed and no live keys were used.
+
+**Important:** this workspace's network policy **blocks Stripe** (`api.stripe.com` returns 403), and no Stripe test key is configured. So:
+- All automated tests and the recorded walkthrough use a **local Stripe test double** (`tests/support/stripe-double.mts`), labeled "NOT Stripe" on every screen and caption. It implements the Stripe calls PynkPours makes and follows Stripe's test-card rules. It also sends webhooks with **genuine Stripe signatures**, created with the official SDK.
+- PynkPours' requests were **contract-checked against Stripe's official `stripe-mock`**, which validates them against Stripe's published API specification.
+- **The real Stripe test-card demonstration has NOT been run yet.** It is prepared as `scripts/stripe/real-test-demo.sh` and `tests/demo/stripe-real.spec.ts`, and runs once you enable access (see Outstanding).
+
+### What was built
+- **Guest checkout, no accounts:**
+  - ticket selector with per-order limits
+  - one details block per guest (a table for 4 gets 4 guest blocks and 4 tickets)
+  - per-guest event questions
+  - age confirmation and policy agreement
+  - spam protection, plus rate limits per IP address and per email
+- **Holds and the Stripe session:**
+  - Placing an order creates a pending order and **35-minute inventory holds** atomically.
+  - The Stripe Checkout Session is built from prices in the database, never the browser, with a 31-minute expiry, card payments only, and **one deduplication key per order**. A resubmitted form reuses the same order and session.
+- **Webhook (the only way an order becomes paid):**
+  - Signature check (raw body, 5-minute tolerance) and live-mode events refused.
+  - Each event is recorded in `stripe_events` and **processed once**.
+  - Handles completed, async success/failure, expired, refunded and payment-failed events.
+  - The amount, currency and session are checked against the order. A mismatch is flagged for review and no tickets are issued.
+  - Each ticket gets a 256-bit credential stored as a hash plus encrypted copy, and a unique short code.
+- **Order page (private link, no login):**
+  - Shows "Confirming your payment…" until the webhook confirms it. **Returning from Stripe is never treated as proof of payment.**
+  - Lets the guest resume payment, or cancel, which expires the Stripe session and releases the seats.
+- **Refunds:**
+  - Admins refund chosen tickets or a whole order. Amounts are split per ticket to the cent, including tables. The Stripe request has a deduplication key, and the refund is recorded immediately.
+  - Optional "put seats back on sale".
+  - The order shows its refund history.
+  - **"Refund all orders"** for a cancelled event.
+  - Refunds made in the Stripe dashboard are reconciled automatically: full refunds invalidate every ticket, partial ones are flagged for review.
+  - **Refunded tickets show "refunded" at check-in and cannot be checked in.**
+- **Free tickets** are issued without payment, because there is no charge to confirm. *Flagged for your decision.*
+- Existing roles, MFA enforcement, RLS and audit logging are unchanged. Refunds are audited with the acting admin.
+
+### Test results
+| Suite | Result |
+|---|---|
+| `npm run verify` (lint, types, unit + database tests, build, secret scan) | **Pass: 180/180** |
+| Integration: webhook handler on the real local Supabase stack (14 tests) plus the Stripe contract check against `stripe-mock` (4 tests) | **Pass: 18/18** |
+| Full browser suite: public site, admin, checkout; phone and desktop; fresh data | **137 passed, 0 failed** (29 skipped by design), clean server log |
+| Final re-check after the workspace restart (lint, types, unit tests) | **Pass: 52/52 unit** |
+
+### Scenarios demonstrated
+All scenarios below ran in a real browser against the local test double; screenshots are in `docs/qa/stage-d/`.
+
+| Scenario | Result |
+|---|---|
+| **Successful payment** (4242 4242 4242 4242), multiple tickets for different guests | No tickets before payment. After the signed webhook: paid, 3 tickets, holds converted |
+| **Table purchase** (Table for 4) | 4 guest blocks, giving **4 individual tickets** with 4 unique codes |
+| **Declined card** (4000 0000 0000 0002) | "Your card was declined": no charge, no tickets, seats still held. Retry with 4242 succeeds |
+| **Abandoned checkout** | Guest leaves Stripe, sees "You left the payment page", cancels. The session expires, seats are released, and the old payment link shows "expired" |
+| **Expired inventory hold** | Expired holds stop counting immediately (lazy expiry). The session-expiry webhook cancels the order and releases the holds |
+| **Duplicate webhook delivery** | The same signed event delivered **5× concurrently** gives 5× "duplicate"; still 1 order, the same tickets, the same emails queued. Integration test: 10 concurrent deliveries plus a different event for the same session issue tickets once |
+| **Forged, unsigned or stale webhooks** | All rejected (400). Nothing recorded |
+| **Success URL without payment** | Shows "Confirming…"; order stays pending, no tickets |
+| **Refund handling** | Admin refunds 1 ticket: Stripe refund, partially refunded, the follow-up webhook is a no-op, the ticket shows **refunded** at check-in and **cannot be checked in**. A dashboard refund of the rest reconciles to fully refunded |
+| **Over-selection via a crafted link** | Refused on the server |
+
+### Outstanding
+1. **Real Stripe test-mode demonstration** (required by you before sign-off). To enable it, in the environment settings (session title bar → environment menu → Edit), then start a **new session**:
+   - Allow these domains: `stripe.com`, `api.stripe.com`, `checkout.stripe.com`, `js.stripe.com`, `m.stripe.network`, `m.stripe.com`, `r.stripe.com`, `q.stripe.com`, `files.stripe.com`, `b.stripecdn.com`.
+   - Add a secret environment variable `STRIPE_SECRET_KEY` holding your **test** key (`sk_test_…`). Don't paste it into chat.
+   - I then run `scripts/stripe/real-test-demo.sh`. **The selectors for Stripe's hosted page are unverified until that first run.**
+2. **Free-ticket orders** are issued without a webhook, because there is no payment. Please confirm that's acceptable.
+3. **Ticket and confirmation emails** are queued but not yet sent (Stage E).
+4. **Fees and tax** are off (your decision is pending). The refund, terms and privacy policy pages are still placeholders, and Stripe requires real ones before live mode.
+5. **Production webhook endpoint setup** belongs to Stage G.
+6. **The CI workflow** has been updated but hasn't run on GitHub yet.

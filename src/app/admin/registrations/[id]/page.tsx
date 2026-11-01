@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { RefundPanel } from "@/components/admin/forms/RefundPanel";
 import { AttendeeEditForm } from "@/components/admin/forms/SmallForms";
+import { ticketShares } from "@/lib/refunds";
 import { Card, Notice, PageHeader, StatusBadge } from "@/components/admin/ui";
 import { formatEventDate, formatEventTime } from "@/lib/datetime";
 import { formatMoney } from "@/lib/money";
@@ -16,19 +18,27 @@ export default async function OrderPage({ params }: PageProps<"/admin/registrati
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const { data: o } = await staff.db
     .from("orders")
-    .select("*, events(id, title, timezone), order_items(ticket_type_name, unit_price_cents, quantity, admits_per_unit, line_total_cents), attendees(id, position, full_name, email, phone, answers, ticket_types(name), tickets(id, manual_code, status, checked_in_at))")
+    .select("*, events(id, title, timezone), order_items(id, ticket_type_name, unit_price_cents, quantity, admits_per_unit, line_total_cents), attendees(id, order_item_id, position, full_name, email, phone, answers, ticket_types(name), tickets(id, manual_code, status, checked_in_at)), refunds(id, amount_cents, ticket_ids, source, reason, created_at, stripe_refund_id)")
     .eq("id", id)
     .maybeSingle();
   if (!o) notFound();
   const tz = o.events?.timezone ?? "America/Chicago";
   const dt = (iso: string | null) => (iso ? `${formatEventDate(iso, tz)} ${formatEventTime(iso, tz)}` : "—");
-  type Att = { id: string; position: number; full_name: string; email: string; phone: string | null; ticket_types: { name: string } | null; tickets: { id: string; manual_code: string; status: string; checked_in_at: string | null } | { id: string; manual_code: string; status: string; checked_in_at: string | null }[] | null };
+  type Att = { id: string; order_item_id: string; position: number; full_name: string; email: string; phone: string | null; ticket_types: { name: string } | null; tickets: { id: string; manual_code: string; status: string; checked_in_at: string | null } | { id: string; manual_code: string; status: string; checked_in_at: string | null }[] | null };
   const attendees = ((o.attendees ?? []) as Att[]).sort((a, b) => a.position - b.position);
+  const ticketRows = attendees.flatMap((a) => {
+    const t = Array.isArray(a.tickets) ? a.tickets[0] : a.tickets;
+    return t ? [{ id: t.id, order_item_id: a.order_item_id, position: a.position, status: t.status, label: `${a.full_name} — ${a.ticket_types?.name ?? ""} (${t.manual_code})` }] : [];
+  });
+  const shares = ticketShares(o.order_items as { id: string; unit_price_cents: number; admits_per_unit: number }[], ticketRows);
+  const refundable = ticketRows.filter((t) => t.status === "valid").map((t) => ({ id: t.id, label: t.label, share_cents: shares.get(t.id) ?? 0 }));
+  type RefundRow = { id: string; amount_cents: number; ticket_ids: string[]; source: string; reason: string | null; created_at: string; stripe_refund_id: string | null };
+  const refunds = ((o.refunds ?? []) as RefundRow[]).sort((a, b) => a.created_at.localeCompare(b.created_at));
   return (
     <AdminShell staff={staff}>
       <PageHeader title={`Order #${o.order_number}`} back={{ href: "/admin/registrations", label: "All registrations" }}
         subtitle={<><Link className="underline" href={`/admin/events/${o.events?.id}/registrations`}>{o.events?.title}</Link> · placed {dt(o.created_at)}</>} />
-      {o.needs_review && <div className="mb-4"><Notice tone="warning">Needs review: {o.review_reason?.replace(/_/g, " ")}. Refund tools arrive with online payments (Stage D).</Notice></div>}
+      {o.needs_review && <div className="mb-4"><Notice tone="warning">Needs review: {o.review_reason?.replace(/_/g, " ")}. {o.review_reason === "partial_refund_unmapped" ? "A partial refund was made in Stripe — choose which tickets it covers below." : "Payment was received but tickets were not issued. Refund the purchaser from the Stripe dashboard (test mode) or contact them."}</Notice></div>}
       <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
         <Card title="Purchase">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
@@ -47,6 +57,25 @@ export default async function OrderPage({ params }: PageProps<"/admin/registrati
             </tbody>
           </table>
         </Card>
+        <div className="space-y-6 lg:col-span-2 lg:row-start-2">
+          {["paid", "partially_refunded"].includes(o.status) && (
+            <Card title={o.payment_provider === "free" ? "Cancel tickets" : "Refund"}>
+              <RefundPanel orderId={o.id} tickets={refundable} currency={o.currency} remainingCents={o.total_cents - o.amount_refunded_cents} free={o.payment_provider === "free" || o.total_cents === 0} />
+            </Card>
+          )}
+          {refunds.length > 0 && (
+            <Card title="Refund history">
+              <ul className="space-y-2 text-sm">
+                {refunds.map((r) => (
+                  <li key={r.id} className="flex flex-wrap justify-between gap-2 border-b border-pp-black/10 pb-2">
+                    <span>{dt(r.created_at)} · {r.ticket_ids.length} ticket(s) · {r.source === "admin" ? "PynkPours admin" : "Stripe dashboard"}{r.reason ? ` · ${r.reason}` : ""}</span>
+                    <span className="font-semibold">−{formatMoney(r.amount_cents, o.currency)} <span className="font-mono text-xs font-normal text-pp-black/60">{r.stripe_refund_id}</span></span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </div>
         <Card title={`Attendees (${attendees.length})`}>
           <ul className="space-y-4">
             {attendees.map((a) => {

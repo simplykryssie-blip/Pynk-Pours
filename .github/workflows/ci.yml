@@ -31,9 +31,13 @@ jobs:
       - run: npm run check:bundle
 
   e2e:
-    name: End-to-end (local Supabase stack + SAMPLE data)
+    name: Integration + end-to-end (local Supabase stack, SAMPLE data, local Stripe test double)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    services:
+      stripe-mock:
+        image: stripe/stripe-mock:latest
+        ports: ["12112:12111"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,7 +54,15 @@ jobs:
             | tr -d '"' > .env.local
           echo "NEXT_PUBLIC_SITE_URL=http://localhost:3123" >> .env.local
           echo "RATE_LIMIT_SALT=$(openssl rand -hex 32)" >> .env.local
-      - run: npm run seed:sample
+          echo "TICKET_CREDENTIAL_KEY=$(openssl rand -base64 32)" >> .env.local
+          # Stripe values below target the LOCAL TEST DOUBLE only (never real Stripe in CI).
+          echo "CHECKOUT_ENABLED=true" >> .env.local
+          echo "STRIPE_SECRET_KEY=sk_test_LOCAL_DOUBLE_not_a_real_key" >> .env.local
+          echo "STRIPE_WEBHOOK_SECRET=whsec_ci_$(openssl rand -hex 16)" >> .env.local
+          echo "STRIPE_API_BASE=http://127.0.0.1:12111" >> .env.local
+          echo "PYNKPOURS_LOCAL_TEST=true" >> .env.local
+      - run: scripts/db/reset-local-demo.sh
+      - run: npm run test:integration
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
