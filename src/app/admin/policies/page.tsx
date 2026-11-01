@@ -24,6 +24,7 @@ export default async function PoliciesPage() {
         {policies.map((p) => (
           <Card
             key={p.slug}
+            region
             title={p.title}
             actions={<span className="text-xs text-pp-black/60">{p.edited ? `Last published ${p.updated}` : "Original draft (not yet edited)"}</span>}
           >

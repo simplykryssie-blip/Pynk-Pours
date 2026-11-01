@@ -42,7 +42,7 @@ test("on-sale event: event-timezone times, tiers, optional VIP, notify sign-up",
   await expect(page.getByRole("heading", { name: "Schedule" })).toBeVisible();
   await page.getByText("Is this a real event?").click();
   await expect(page.getByText("No. This is sample data for development.")).toBeVisible();
-  await expect(page.getByText("21+ (valid ID may be required)")).toBeVisible();
+  await expect(page.getByText("21+ (valid photo ID required)")).toBeVisible();
 });
 
 test("coming-soon Entrepreneurial Brunch: no invented details", async ({ page }) => {

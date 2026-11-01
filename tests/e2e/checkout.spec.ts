@@ -248,6 +248,8 @@ test("free registration: no Stripe redirect, tickets issued, inventory enforced,
     await page.getByTestId(`guest-${i}`).getByRole("textbox", { name: "Guest email" }).fill(`free${i}-${tag}@example.test`);
   }
   await page.getByText(/I've read the event details/).click();
+  // Every PynkPours event is 18+, even when the event sets no age of its own.
+  await page.getByText("I confirm every guest is 18 or older and will bring valid ID.").click();
   await page.waitForTimeout(2700);
   await page.getByRole("button", { name: "Complete registration" }).click();
   await expect(page).toHaveURL(/\/orders\/[A-Za-z0-9_-]{43}$/); // straight to the order — no payment page

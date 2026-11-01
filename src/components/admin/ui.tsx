@@ -19,9 +19,12 @@ export function PageHeader({ title, subtitle, actions, back }: {
   );
 }
 
-export function Card({ title, children, className, actions }: { title?: string; children: ReactNode; className?: string; actions?: ReactNode }) {
-  // Titled cards are named regions, so screen-reader users can jump between them.
-  const headingId = title ? `card-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` : undefined;
+export function Card({ title, children, className, actions, region }: {
+  title?: string; children: ReactNode; className?: string; actions?: ReactNode;
+  /** Name the card as a landmark region (only where the page doesn't already label the area). */
+  region?: boolean;
+}) {
+  const headingId = region && title ? `card-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` : undefined;
   return (
     <section aria-labelledby={headingId} className={cx("rounded-sm border border-pp-black/10 bg-white p-4 shadow-sm sm:p-6", className)}>
       {(title || actions) && (
