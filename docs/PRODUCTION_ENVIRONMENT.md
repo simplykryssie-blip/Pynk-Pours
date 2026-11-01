@@ -38,7 +38,7 @@ Security advisor: no errors. The same INFO/WARN findings as the preview, all int
 
 ## Remaining setup
 
-1. **Owner (dashboard):** Authentication.
+1. **Done (owner confirmed 2026-11-01):** Authentication.
    - Turn off public sign-ups.
    - Keep Email on.
    - Enable TOTP MFA.
@@ -60,3 +60,14 @@ Security advisor: no errors. The same INFO/WARN findings as the preview, all int
 - No events yet.
 - Checkout is off (`CHECKOUT_ENABLED=false`) until the Stripe test-mode run passes.
 - Search indexing is on.
+- Owner confirmed (2026-11-01):
+  - Supabase Auth settings done.
+  - Authenticator enrolled on production.
+  - hello@pynkpours.com receives mail.
+  - Resend domain pynkpours.com verified.
+- Vercel Production also has `RESEND_API_KEY` (Sensitive), `EMAIL_FROM="PynkPours <hello@pynkpours.com>"`, `EMAIL_REPLY_TO=hello@pynkpours.com` and `CONTACT_INBOX_EMAIL=hello@pynkpours.com`.
+- Pending from the owner: live `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` (endpoint `https://pynkpours.com/api/stripe/webhook`, 7 events).
+- Next build work, in the owner-approved order:
+  1. Stage E: email sending, QR tickets, camera check-in.
+  2. Custom policy pages.
+  3. Form builder.
