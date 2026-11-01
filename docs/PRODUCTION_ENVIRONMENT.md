@@ -1,0 +1,50 @@
+# PynkPours Production environment
+
+The live database for pynkpours.com. Real data only: no SAMPLE content is ever loaded here.
+
+| Item | Value |
+|---|---|
+| Supabase organization | PynkPours (`qcrysnhugttxjirzvwlf`), Free plan (owner's choice) |
+| Production project | **PynkPours Production**, ref `yottjzukshfmeykdsmzi`, region `us-east-1`, Postgres 17 |
+| Created | 2026-11-01, after the owner deleted the empty original project (`pkqzhchzmthigxqiwnqo`) to stay within the free plan's 2-project limit |
+| Preview (separate) | PynkPours Preview, `msbkdryzxqznksmiftqx`: see `docs/PREVIEW_ENVIRONMENT.md` |
+
+## Database schema
+
+| Migration | How it was applied |
+|---|---|
+| 0100 foundation to 0600 security | Supabase MCP `apply_migration` (recorded in migration history) |
+| 0700 rpcs, 0800 scheduling, 0900 admin, 1000 site_pages | Run by the owner in the SQL Editor as one transaction. **Not recorded in `supabase_migrations`**. |
+
+Before using `supabase db push` here, first run
+`supabase migration repair --status applied 20261101000700 20261101000800 20261101000900 20261101001000`.
+
+Verified on 2026-11-01:
+
+- 20 tables, all with RLS enabled.
+- 47 functions; 29 `public` policies; 3 `storage` policies; bucket `event-media`.
+- pg_cron `pynkpours-sweep-expired` (`*/5 * * * *`).
+- `anon` cannot create orders.
+- Staff access requires an `aal2` (MFA) session.
+- No events or users.
+
+Security advisor: no errors. The same INFO/WARN findings as the preview, all intentional and explained in `docs/PREVIEW_ENVIRONMENT.md`.
+
+## Free-plan notes (owner decision)
+
+- Supabase Free has no automated backups and pauses projects after about a week with no API traffic. Plan Supabase Pro before significant sales volume.
+- Vercel Hobby does not permit commercial use, and ticket sales count. Plan Vercel Pro soon after launch.
+
+## Remaining setup
+
+1. **Owner (dashboard):** Authentication.
+   - Turn off public sign-ups.
+   - Keep Email on.
+   - Enable TOTP MFA.
+   - Set passwords to at least 12 characters with lower and upper case letters and digits.
+   - URL Configuration: Site URL `https://admin.pynkpours.com`; Redirect URL `https://admin.pynkpours.com/admin/auth/recovery`.
+2. **Owner (dashboard):** Create the owner user `pynkpours@gmail.com` (Auto Confirm). The owner role is then granted with one `admin_profiles` insert.
+3. Production Vercel project with fresh owner-generated secrets, `SITE_INDEXABLE=true`, and `CHECKOUT_ENABLED=false` until the Stripe test-mode run passes.
+4. Domains: `pynkpours.com` and `www`. Move `admin.pynkpours.com` from the preview project.
+5. Stripe test-mode run (new session with `STRIPE_SECRET_KEY` and the Stripe domains allowed). Then live keys, pasted by the owner into Vercel, and the live webhook endpoint.
+6. Email (Resend) with DNS records, ticket emails and QR codes (Stage E), then the final review (Stage F).
