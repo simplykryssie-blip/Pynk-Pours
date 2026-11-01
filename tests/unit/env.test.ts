@@ -32,5 +32,6 @@ describe("server env", () => {
   });
   it("requires a 32-byte credential key", () => {
     expect(() => serverEnv({ ...base, TICKET_CREDENTIAL_KEY: "too-short" })).toThrow(/TICKET_CREDENTIAL_KEY/);
+    expect(() => serverEnv({ ...base, TICKET_CREDENTIAL_KEY: "A-long-password-manager-passphrase-42!" })).not.toThrow();
   });
 });

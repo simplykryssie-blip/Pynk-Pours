@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { randomBytes } from "node:crypto";
-import {
+import { ticketKeyBytes,
   constantTimeEqual, decryptCredential, encryptCredential, generateCredential, generateManualCode,
   generatePublicToken, hashCredential, isWellFormedCredential, rateLimitKey,
 } from "@/server/credentials";
@@ -37,7 +37,7 @@ describe("ticket credentials", () => {
     parts[2] = Buffer.from("tampered!").toString("base64url");
     expect(() => decryptCredential(parts.join("."), key)).toThrow();
     expect(() => decryptCredential(enc, randomBytes(32).toString("base64"))).toThrow();
-    expect(() => encryptCredential("x", randomBytes(16).toString("base64"))).toThrow(/32 bytes/);
+    expect(() => encryptCredential("x", randomBytes(16).toString("base64"))).toThrow(/32 random bytes in base64, or a passphrase/);
   });
 
   it("rejects malformed credentials before any lookup", () => {
@@ -69,5 +69,26 @@ describe("other tokens", () => {
     expect(constantTimeEqual("abc", "abc")).toBe(true);
     expect(constantTimeEqual("abc", "abd")).toBe(false);
     expect(constantTimeEqual("abc", "abcd")).toBe(false);
+  });
+});
+
+describe("TICKET_CREDENTIAL_KEY formats", () => {
+  it("uses a base64 32-byte key as-is (existing keys keep working)", () => {
+    const raw = randomBytes(32);
+    expect(ticketKeyBytes(raw.toString("base64")).equals(raw)).toBe(true);
+  });
+
+  it("stretches a long passphrase from a password manager to 32 bytes, deterministically", () => {
+    const pass = "kT9#vq2-Lm8!xR4pZ7wE1@nB6yH3sJ5d";
+    const a = ticketKeyBytes(pass);
+    expect(a.length).toBe(32);
+    expect(ticketKeyBytes(pass).equals(a)).toBe(true);
+    const c = generateCredential();
+    expect(decryptCredential(encryptCredential(c, pass), pass)).toBe(c);
+  });
+
+  it("refuses short or weak values", () => {
+    expect(() => ticketKeyBytes("short")).toThrow(/at least 32 characters/);
+    expect(() => ticketKeyBytes(randomBytes(16).toString("base64"))).toThrow();
   });
 });

@@ -26,10 +26,21 @@ export function hashCredential(credential: string): string {
   return createHash("sha256").update(credential, "utf8").digest("hex");
 }
 
-function keyFrom(base64Key: string): Buffer {
-  const key = Buffer.from(base64Key, "base64");
-  if (key.length !== 32) throw new Error("TICKET_CREDENTIAL_KEY must decode to 32 bytes");
-  return key;
+/**
+ * TICKET_CREDENTIAL_KEY may be either 32 random bytes in base64, or a long random
+ * passphrase (32+ characters, e.g. from a password manager), which is stretched to
+ * 32 bytes with SHA-256. A value that is valid base64 of exactly 32 bytes is always
+ * used as-is, so existing keys keep working.
+ */
+export function ticketKeyBytes(value: string): Buffer {
+  const decoded = Buffer.from(value, "base64");
+  if (decoded.length === 32 && decoded.toString("base64") === value) return decoded;
+  if (value.length >= 32) return createHash("sha256").update(value, "utf8").digest();
+  throw new Error("TICKET_CREDENTIAL_KEY must be 32 random bytes in base64, or a passphrase of at least 32 characters");
+}
+
+function keyFrom(key: string): Buffer {
+  return ticketKeyBytes(key);
 }
 
 export function encryptCredential(credential: string, base64Key: string): string {

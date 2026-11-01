@@ -20,8 +20,8 @@ const serverSchema = z.object({
   EMAIL_REPLY_TO: z.email().optional(),
   CONTACT_INBOX_EMAIL: z.email(),
   TICKET_CREDENTIAL_KEY: z.string().refine(
-    (v) => Buffer.from(v, "base64").length === 32,
-    "must be 32 random bytes, base64-encoded",
+    (v) => (Buffer.from(v, "base64").length === 32 && Buffer.from(v, "base64").toString("base64") === v) || v.length >= 32,
+    "must be 32 random bytes in base64, or a random passphrase of at least 32 characters",
   ),
   RATE_LIMIT_SALT: z.string().min(32),
   CRON_SECRET: z.string().min(32),

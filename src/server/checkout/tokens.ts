@@ -1,6 +1,6 @@
 import "server-only";
 import { createHmac } from "node:crypto";
-import { hashCredential } from "../credentials";
+import { hashCredential, ticketKeyBytes } from "../credentials";
 import { envSubset } from "../env";
 
 /**
@@ -10,7 +10,7 @@ import { envSubset } from "../env";
  */
 export function orderTokenFor(idempotencyKey: string): { token: string; hash: string } {
   const { TICKET_CREDENTIAL_KEY } = envSubset(["TICKET_CREDENTIAL_KEY"]);
-  const token = createHmac("sha256", Buffer.from(TICKET_CREDENTIAL_KEY, "base64")).update(`order-link:${idempotencyKey}`).digest("base64url");
+  const token = createHmac("sha256", ticketKeyBytes(TICKET_CREDENTIAL_KEY)).update(`order-link:${idempotencyKey}`).digest("base64url");
   return { token, hash: hashCredential(token) };
 }
 
