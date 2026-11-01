@@ -11,7 +11,7 @@ completely separate from production.
 | Existing project (do not touch) | `pkqzhchzmthigxqiwnqo` ("pynkpours@gmail.com's Project", us-west-2). Not modified. |
 | Stripe | **Disabled** (`CHECKOUT_ENABLED=false`). No Stripe keys in preview. |
 | Domain | None. `pynkpours.com` is **not** connected. |
-| Vercel | Not yet created (Vercel connector was disconnected during setup). |
+| Vercel | Team PynkPour (`team_o8KHxEPN0V1JqHycG9m41kNK`, Hobby) has no projects yet. Project creation returned 403 because GitHub is not yet connected to Vercel (no Git namespaces). |
 
 ## Database schema
 
@@ -62,6 +62,9 @@ No payment happened. Their QR credentials were random and discarded, so sample t
 checked in by **manual lookup only**.
 
 ## Remaining setup (owner actions are marked)
+
+Steps 1–3 were confirmed done by the owner on 2026-11-01: public sign-ups off, TOTP on, and the password policy set.
+
 
 1. **Owner (dashboard):** Authentication → Sign In / Providers. Turn off **Allow new users to sign up** and keep **Email** enabled.
 2. **Owner (dashboard):** Authentication → Multi-Factor. Enable **TOTP (authenticator app)**.
