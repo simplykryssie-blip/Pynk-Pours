@@ -345,7 +345,9 @@ describe("rate limiting", () => {
   it("is exact under concurrency", async () => {
     const key = sha256("burst");
     const res = await Promise.all(Array.from({ length: 30 }, () =>
-      svc<{ ok: boolean }>("select public.check_rate_limit('checkout', $1, 10, 600) as ok", [key])));
+      // 1-year window: a fixed window resets at its boundary, so a short window could
+      // legitimately let a burst straddling the boundary through twice.
+      svc<{ ok: boolean }>("select public.check_rate_limit('checkout', $1, 10, 31536000) as ok", [key])));
     expect(res.filter((r) => r.ok)).toHaveLength(10);
   });
 });

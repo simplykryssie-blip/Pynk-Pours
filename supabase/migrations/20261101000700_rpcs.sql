@@ -668,7 +668,7 @@ begin
     v_released := public._release_ticket_inventory(o.id, v_tickets);
   end if;
 
-  v_status := case when v_new_ref = o.total_cents then 'refunded' else 'partially_refunded' end;
+  v_status := (case when v_new_ref = o.total_cents then 'refunded' else 'partially_refunded' end)::public.order_status;
   update public.orders
      set amount_refunded_cents = v_new_ref, status = v_status,
          needs_review = needs_review or v_review,

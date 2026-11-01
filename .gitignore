@@ -44,3 +44,8 @@ next-env.d.ts
 # local database / backups — never commit
 *.dump
 /supabase/.temp/
+
+# Playwright artifacts
+/test-results/
+/playwright-report/
+/supabase/.branches/

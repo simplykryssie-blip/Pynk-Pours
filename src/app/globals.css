@@ -12,7 +12,10 @@
   --pp-pink: #d994b2;
   --pp-pink-strong: #c2185b; /* CTA fill: passes WCAG AA with white text */
   --pp-gold: #c8a45d;
+  --pp-gold-deep: #7a5c22; /* gold for text on light backgrounds (AA contrast) */
   --pp-muted: #b8aeb2;
+  --pp-blush-light: #fbeef2; /* soft blush section background */
+  --pp-plum: #2a1020; /* deep plum for gradients behind imagery */
 }
 
 @theme inline {
@@ -24,12 +27,21 @@
   --color-pp-pink-strong: var(--pp-pink-strong);
   --color-pp-gold: var(--pp-gold);
   --color-pp-muted: var(--pp-muted);
+  --color-pp-gold-deep: var(--pp-gold-deep);
+  --color-pp-blush-light: var(--pp-blush-light);
+  --color-pp-plum: var(--pp-plum);
   --font-serif: var(--font-pp-serif), Georgia, "Times New Roman", serif;
   --font-sans: var(--font-pp-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 html {
   -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+/* Keep anchored sections clear of the sticky header. */
+[id] {
+  scroll-margin-top: 6rem;
 }
 
 body {

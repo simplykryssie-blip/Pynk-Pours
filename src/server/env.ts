@@ -46,3 +46,20 @@ export function serverEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {
   if (source === process.env) cached = env;
   return env;
 }
+
+/**
+ * Validate only the variables a feature needs, so e.g. the public site and its
+ * forms work before Stripe/email are configured. Same rules as serverEnv().
+ */
+export function envSubset<K extends keyof ServerEnv>(
+  keys: readonly K[],
+  source: NodeJS.ProcessEnv = process.env,
+): Pick<ServerEnv, K> {
+  const mask = Object.fromEntries(keys.map((k) => [k, true])) as { [P in K]: true };
+  const parsed = serverSchema.pick(mask as never).safeParse(source);
+  if (!parsed.success) {
+    const names = parsed.error.issues.map((i) => i.path.join(".")).join(", ");
+    throw new Error(`Invalid or missing server environment variables: ${names}`);
+  }
+  return parsed.data as unknown as Pick<ServerEnv, K>;
+}

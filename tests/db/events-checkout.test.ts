@@ -30,6 +30,20 @@ describe("event publishing (admin via RLS)", () => {
     expect(err.message).toMatch(/cannot be published/);
   });
 
+  it("coming-soon events can be published without date/venue; switching to tickets then requires them", async () => {
+    const id = await as(db, "authenticated", admin, async (c) =>
+      (await c.query(`insert into public.events (slug, title, short_description, registration_mode)
+                      values ('tba-event', 'TBA', 'Details to be announced', 'coming_soon') returning id`)).rows[0].id);
+    await as(db, "authenticated", admin, (c) =>
+      c.query("update public.events set status = 'published' where id = $1", [id]));
+    const err = await expectError(as(db, "authenticated", admin, (c) =>
+      c.query("update public.events set registration_mode = 'tickets' where id = $1", [id])));
+    expect(err.message).toMatch(/Ticketed events need/);
+    const anonSees = await as(db, "anon", null, async (c) =>
+      (await c.query("select id from public.events where id = $1", [id])).rows);
+    expect(anonSees).toHaveLength(1);
+  });
+
   it("rejects events created directly as published", async () => {
     const err = await expectError(as(db, "authenticated", admin, (c) =>
       c.query("insert into public.events (slug, title, status) values ('sneaky', 'X', 'published')")));
@@ -57,7 +71,7 @@ describe("event publishing (admin via RLS)", () => {
                         'V', 'tickets') returning id`)).rows[0].id);
     const err = await expectError(as(db, "authenticated", admin, (c) =>
       c.query("update public.events set status = 'published' where id = $1", [id])));
-    expect(err.message).toMatch(/at least one ticket type/);
+    expect(err.message).toMatch(/at least one ticket type|Ticketed events need/);
   });
 
   it("publishing sets published_at and every change is audited", async () => {

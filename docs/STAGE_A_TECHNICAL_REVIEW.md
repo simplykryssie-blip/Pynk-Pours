@@ -94,6 +94,8 @@ Nothing touches a hosted project until you approve.
 
 Before production, the same migrations must also pass on a real **disposable Supabase project or Supabase branch** (Stage G gate).
 
+> **Update (Stage B):** Supabase's images were later pulled successfully from Docker Hub. All migrations now also apply cleanly on the **official Supabase local stack** (Postgres 17 image), the `pg_cron` sweep registers, and `supabase db lint` is clean. Production still requires the hosted-project gate above.
+
 ---
 
 ## 3. Architecture & security model

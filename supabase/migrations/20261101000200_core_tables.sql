@@ -87,18 +87,29 @@ begin
     raise exception 'Invalid IANA timezone: %', new.timezone using errcode = '22023';
   end if;
 
-  if new.status = 'published' and old.status is distinct from 'published' then
-    if new.starts_at is null or new.timezone is null
-       or new.short_description is null
-       or (not new.is_online and new.venue_name is null) then
-      raise exception 'Event cannot be published: starts_at, timezone, short_description and venue (or is_online) are required'
+  -- Publish rules apply on publish AND on every later edit of a published event.
+  --  * Every visible event needs a short description.
+  --  * 'coming_soon' events may omit date/venue ("To be announced") — owner
+  --    content is never invented to fill gaps.
+  --  * Ticket-selling events need date, timezone, venue (or online) and >= 1 tier.
+  if new.status = 'published' then
+    if new.short_description is null then
+      raise exception 'Event cannot be published: short_description is required'
         using errcode = '23514';
     end if;
-    if new.registration_mode = 'tickets' and not exists (
-      select 1 from public.ticket_types t where t.event_id = new.id
-    ) then
-      raise exception 'Event cannot be published in ticket mode without at least one ticket type'
-        using errcode = '23514';
+    if new.registration_mode = 'tickets' then
+      if new.starts_at is null or new.timezone is null
+         or (not new.is_online and new.venue_name is null) then
+        raise exception 'Ticketed events need starts_at, timezone and a venue (or is_online) before publishing'
+          using errcode = '23514';
+      end if;
+      if not exists (select 1 from public.ticket_types t where t.event_id = new.id) then
+        raise exception 'Event cannot be published in ticket mode without at least one ticket type'
+          using errcode = '23514';
+      end if;
+    end if;
+    if new.starts_at is not null and new.timezone is null then
+      raise exception 'A timezone is required when a start time is set' using errcode = '23514';
     end if;
     new.published_at := coalesce(new.published_at, now());
   end if;

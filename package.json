@@ -7,16 +7,22 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:db": "vitest run --project db",
     "db:start": "scripts/db/local-pg.sh start",
     "db:stop": "scripts/db/local-pg.sh stop",
     "check:bundle": "scripts/check-client-bundle.sh",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:bundle"
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:bundle",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset --local",
+    "seed:sample": "tsx scripts/db/seed-local-sample.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -24,6 +30,8 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
@@ -32,6 +40,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "pg": "^8.23.1",
+    "supabase": "^2.122.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
