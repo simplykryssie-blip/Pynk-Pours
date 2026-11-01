@@ -7,6 +7,7 @@ The live database for pynkpours.com. Real data only: no SAMPLE content is ever l
 | Supabase organization | PynkPours (`qcrysnhugttxjirzvwlf`), Free plan (owner's choice) |
 | Production project | **PynkPours Production**, ref `yottjzukshfmeykdsmzi`, region `us-east-1`, Postgres 17 |
 | Created | 2026-11-01, after the owner deleted the empty original project (`pkqzhchzmthigxqiwnqo`) to stay within the free plan's 2-project limit |
+| Vercel project | **pynkpours** (`prj_8a1BNt1uDRM4v3ZJNShAus1eKNth`), Node 22.x, preview deployments disabled (they would share the production database). Domains: `pynkpours.com`, and `www.pynkpours.com` 308-redirecting to it. **Vercel Authentication on all deployments until the owner approves launch.** GoDaddy DNS: `@` A 76.76.21.21 only; `www` CNAME to Vercel. |
 | Preview (separate) | PynkPours Preview, `msbkdryzxqznksmiftqx`: see `docs/PREVIEW_ENVIRONMENT.md` |
 
 ## Database schema
@@ -44,7 +45,8 @@ Security advisor: no errors. The same INFO/WARN findings as the preview, all int
    - Set passwords to at least 12 characters with lower and upper case letters and digits.
    - URL Configuration: Site URL `https://admin.pynkpours.com`; Redirect URL `https://admin.pynkpours.com/admin/auth/recovery`.
 2. **Owner (dashboard):** Create the owner user `pynkpours@gmail.com` (Auto Confirm). The owner role is then granted with one `admin_profiles` insert.
-3. Production Vercel project with fresh owner-generated secrets, `SITE_INDEXABLE=true`, and `CHECKOUT_ENABLED=false` until the Stripe test-mode run passes.
-4. Domains: `pynkpours.com` and `www`. Move `admin.pynkpours.com` from the preview project.
+3. **Done:** Vercel project created with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL=https://pynkpours.com`, `SITE_INDEXABLE=true`, `CHECKOUT_ENABLED=false` and `STRIPE_ALLOW_LIVE=false`.
+   **Owner:** add the Sensitive secrets `SUPABASE_SECRET_KEY` (production), `TICKET_CREDENTIAL_KEY`, `RATE_LIMIT_SALT` and `CRON_SECRET`. The last three are 32+ character password-manager passphrases.
+4. **Done:** `pynkpours.com` and `www` attached. At launch, move `admin.pynkpours.com` from the preview project (the owner removes it there), then set `ADMIN_HOST` on production and remove it from the preview.
 5. Stripe test-mode run (new session with `STRIPE_SECRET_KEY` and the Stripe domains allowed). Then live keys, pasted by the owner into Vercel, and the live webhook endpoint.
 6. Email (Resend) with DNS records, ticket emails and QR codes (Stage E), then the final review (Stage F).
