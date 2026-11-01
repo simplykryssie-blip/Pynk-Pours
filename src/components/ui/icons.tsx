@@ -45,3 +45,12 @@ export const EyeIcon = (p: SVGProps<SVGSVGElement>) => (
 export const EyeOffIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M3 3l18 18" /><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.7 17.7 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.9 9.9 0 0 0 5.4-1.6" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /></svg>
 );
+export const InstagramIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="0.6" fill="currentColor" /></svg>
+);
+export const TikTokIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5" /><path d="M14 3c.4 2.6 2.1 4.3 5 4.6" /></svg>
+);
+export const FacebookIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M14.5 21v-7.5h2.6l.4-3h-3V8.6c0-.9.3-1.5 1.6-1.5h1.6V4.4A21 21 0 0 0 15.4 4.3c-2.3 0-3.9 1.4-3.9 4v2.2H9v3h2.5V21" /></svg>
+);

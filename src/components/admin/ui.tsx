@@ -20,11 +20,13 @@ export function PageHeader({ title, subtitle, actions, back }: {
 }
 
 export function Card({ title, children, className, actions }: { title?: string; children: ReactNode; className?: string; actions?: ReactNode }) {
+  // Titled cards are named regions, so screen-reader users can jump between them.
+  const headingId = title ? `card-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` : undefined;
   return (
-    <section className={cx("rounded-sm border border-pp-black/10 bg-white p-4 shadow-sm sm:p-6", className)}>
+    <section aria-labelledby={headingId} className={cx("rounded-sm border border-pp-black/10 bg-white p-4 shadow-sm sm:p-6", className)}>
       {(title || actions) && (
         <div className="mb-4 flex items-center justify-between gap-3">
-          {title && <h2 className="text-lg font-semibold">{title}</h2>}
+          {title && <h2 id={headingId} className="text-lg font-semibold">{title}</h2>}
           {actions}
         </div>
       )}

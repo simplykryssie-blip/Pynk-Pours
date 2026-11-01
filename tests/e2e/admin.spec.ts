@@ -105,6 +105,39 @@ test.describe("access control", () => {
 });
 
 // ---------------------------------------------------------------------------
+test.describe("policies", () => {
+  test("owner edits the refund policy and the website shows it at once", async ({ page, isMobile }) => {
+    desktopOnly(isMobile);
+    const marker = `E2E edit ${randomUUID().slice(0, 8)}`;
+    try {
+      await asStaff(page, "owner");
+      await page.goto("/admin/policies");
+      const card = page.getByRole("region", { name: "Refund Policy" });
+      const box = card.getByLabel(/Policy text/);
+      await expect(box).toHaveValue(/## Requests made 7 or more days before the event/);
+      await box.fill(`Intro for ${marker}.\n\n## Our promise\n- Bullet ${marker}\n\nClosing paragraph.`);
+      await card.getByRole("button", { name: "Publish changes" }).click();
+      await expect(card.getByText("Refund Policy published")).toBeVisible();
+
+      await page.goto("/refunds");
+      await expect(page.getByRole("heading", { level: 2, name: "1. Our promise" })).toBeVisible();
+      await expect(page.getByRole("listitem").filter({ hasText: `Bullet ${marker}` })).toBeVisible();
+      await expect(page.getByText(`Intro for ${marker}.`)).toBeVisible();
+
+      await page.goto("/admin/activity");
+      await expect(page.getByText("Edited policy").or(page.getByText("Published policy")).first()).toBeVisible();
+    } finally {
+      await localDb((c) => c.query("delete from public.site_pages where slug = 'refunds'"));
+    }
+  });
+
+  test("check-in staff can't open the policy editor", async ({ page }) => {
+    await asStaff(page, "checkin");
+    await page.goto("/admin/policies");
+    await expect(page).not.toHaveURL(/\/admin\/policies$/);
+  });
+});
+
 test.describe("owner dashboard", () => {
   test("overview summarises events, registrations, tickets, check-ins and sales", async ({ page }) => {
     const problems = watchConsole(page);
@@ -126,7 +159,7 @@ test.describe("owner dashboard", () => {
     expect(problems).toEqual([]);
   });
 
-  for (const path of ["/admin/events", "/admin/registrations", "/admin/check-in", "/admin/inbox", "/admin/activity", "/admin/staff", "/admin/account", "/admin/events/new"]) {
+  for (const path of ["/admin/events", "/admin/registrations", "/admin/check-in", "/admin/inbox", "/admin/policies", "/admin/activity", "/admin/staff", "/admin/account", "/admin/events/new"]) {
     test(`${path} renders cleanly and accessibly`, async ({ page }) => {
       const problems = watchConsole(page);
       await asStaff(page, "owner");

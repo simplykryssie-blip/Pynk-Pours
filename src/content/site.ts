@@ -18,13 +18,20 @@ export const brand = {
   positioning: "Where ideas meet opportunity.", // [B]
 } as const;
 
-/** PENDING owner confirmation — leave null to hide from the site. */
+/** Confirmed by the owner (2026-11-01). Leave a value null to hide it from the site. */
 export const contactDetails = {
-  email: null as string | null, // prototype used hello@pynkpours.com — unconfirmed
+  email: "hello@pynkpours.com" as string | null,
   phone: null as string | null,
-  location: null as string | null,
-  social: [] as { label: string; href: string }[],
+  location: "Lake Charles, Louisiana" as string | null,
+  social: [
+    { label: "Instagram", href: "https://www.instagram.com/pynkpours" },
+    { label: "TikTok", href: "https://www.tiktok.com/@pynkpours" },
+    { label: "Facebook", href: "https://www.facebook.com/share/1C7o9ESASQ/" },
+  ] as { label: "Instagram" | "TikTok" | "Facebook"; href: string }[],
 };
+
+/** Every PynkPours event is for guests 18 and older (owner policy, 2026-11-01). */
+export const SITE_MIN_AGE = 18;
 
 export const nav = [
   { href: "/", label: "Home" },

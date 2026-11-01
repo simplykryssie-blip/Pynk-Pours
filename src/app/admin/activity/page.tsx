@@ -11,6 +11,7 @@ const LABELS: Record<string, string> = {
   "insert:ticket_types": "Added ticket", "update:ticket_types": "Edited ticket", "delete:ticket_types": "Deleted ticket",
   "insert:event_media": "Uploaded image", "update:event_media": "Edited image", "delete:event_media": "Deleted image",
   "insert:admin_profiles": "Added staff", "update:admin_profiles": "Changed staff access",
+  "insert:site_pages": "Published policy", "update:site_pages": "Edited policy",
   "event.duplicate": "Duplicated event", "attendee.update": "Edited attendee", "export.attendees": "Exported attendees",
   "export.sales": "Exported sales", "order.paid": "Order paid", "order.refund": "Refund", "ticket.undo_check_in": "Undid check-in",
   "ticket.cancel": "Cancelled ticket", "ticket.resend": "Resent ticket", "ticket.rotate_credential": "Reissued ticket QR",

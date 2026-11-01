@@ -4,6 +4,7 @@ import { brand, contactDetails, home, nav } from "@/content/site";
 import { NewsletterForm } from "@/components/forms/NewsletterForm";
 import { Container, Eyebrow } from "@/components/ui/primitives";
 import { Logo } from "./Logo";
+import { SocialLinks } from "./SocialLinks";
 
 export function SiteFooter() {
   return (
@@ -24,6 +25,8 @@ export function SiteFooter() {
           {contactDetails.email && (
             <p className="mt-6 text-sm"><a className="text-pp-cream/80 hover:text-pp-pink" href={`mailto:${contactDetails.email}`}>{contactDetails.email}</a></p>
           )}
+          {contactDetails.location && <p className="mt-2 text-sm text-pp-cream/70">{contactDetails.location}</p>}
+          <SocialLinks className="mt-4" />
         </nav>
         <div>
           <Eyebrow>{home.newsletter.eyebrow}</Eyebrow>

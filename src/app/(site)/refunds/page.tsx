@@ -1,21 +1,10 @@
 import type { Metadata } from "next";
-import { PageHero } from "@/components/site/PageHero";
-import { Container, LinkButton } from "@/components/ui/primitives";
+import { PolicyPage } from "@/components/site/PolicyPage";
+import { getPolicy } from "@/server/data/pages";
 
-export const metadata: Metadata = { title: "Refund Policy", robots: { index: false } };
+export const metadata: Metadata = { title: "Refund Policy" };
 
-/** Placeholder until the owner supplies a policy reviewed by their advisers. Never invent policy terms. */
-export default function Page() {
-  return (
-    <>
-      <PageHero title="Refund Policy" />
-      <section className="bg-pp-cream py-16 text-pp-black">
-        <Container className="max-w-3xl space-y-4">
-          <p className="text-lg">Our refund policy is being finalised and will be published here before tickets go on sale.</p>
-          <p className="text-pp-black/75">If you have a question in the meantime, please reach out and we&apos;ll be happy to help.</p>
-          <LinkButton href="/contact" variant="secondary-light">Contact us</LinkButton>
-        </Container>
-      </section>
-    </>
-  );
+/** Text is edited by owners/admins in the dashboard (Policies). */
+export default async function Page() {
+  return <PolicyPage policy={await getPolicy("refunds")} />;
 }

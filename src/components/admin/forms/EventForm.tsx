@@ -70,7 +70,7 @@ export function EventForm({ action, defaults, submitLabel }: {
             options={[{ value: "sold_out", label: "Show “Sold out”" }, { value: "waitlist", label: "Offer a waitlist" }]} />
           <Input name="capacity" label="Total capacity (optional)" inputMode="numeric" state={state} defaultValue={d.capacity} hint="Overall guest limit across all ticket types. Blank = no overall limit." />
           <Input name="max_tickets_per_order" label="Max tickets per order" inputMode="numeric" state={state} defaultValue={d.max_tickets_per_order ?? 10} />
-          <Input name="min_age" label="Minimum age (optional)" inputMode="numeric" state={state} defaultValue={d.min_age} />
+          <Input name="min_age" label="Minimum age (optional)" hint="Every event is 18+. Enter a higher age (e.g. 21) only if this event needs it." inputMode="numeric" state={state} defaultValue={d.min_age} />
           <Input name="dress_code" label="Dress code (optional)" state={state} defaultValue={d.dress_code} />
         </div>
         <Checkbox name="show_remaining_count" label="Show “Only N left” when tickets run low" state={state} defaultChecked={d.show_remaining_count} />

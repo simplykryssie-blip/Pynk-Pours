@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { effectiveMinAge } from "@/lib/age";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -54,7 +55,7 @@ async function Checkout({ params, searchParams }: PageProps<"/events/[slug]/chec
         <p className="mt-1 text-pp-black/75">{event.title} · {when.date}{when.time ? ` · ${when.time}` : ""} · {eventWhere(event)}</p>
         <p className="mt-1 text-sm text-pp-black/60">No account needed. Each guest gets their own ticket.</p>
         <div className="mt-8">
-          <CheckoutForm slug={slug} lines={lines} questions={(qs ?? []) as CheckoutQuestion[]} currency={event.currency} minAge={event.min_age} holdMinutes={35} />
+          <CheckoutForm slug={slug} lines={lines} questions={(qs ?? []) as CheckoutQuestion[]} currency={event.currency} minAge={effectiveMinAge(event.min_age)} holdMinutes={35} />
         </div>
       </Container>
     </section>

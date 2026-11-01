@@ -8,6 +8,7 @@ import { ArrowIcon, CalendarIcon, ClockIcon, PinIcon } from "@/components/ui/ico
 import { Badge, Container } from "@/components/ui/primitives";
 import type { Registration } from "@/lib/registration";
 import { eventImageUrl, type GalleryImage, type PublicEvent, type TicketOption } from "@/server/data/events";
+import { effectiveMinAge } from "@/lib/age";
 
 /**
  * The public event page body. Shared by the live page and the admin preview so
@@ -135,7 +136,7 @@ export function EventView({ event, options, registration, gallery, preview = fal
 function Details({ event }: { event: PublicEvent }) {
   const rows = [
     ["Dress code", event.dress_code],
-    ["Age requirement", event.min_age ? `${event.min_age}+ (valid ID may be required)` : null],
+    ["Age requirement", `${effectiveMinAge(event.min_age)}+ (valid photo ID required)`],
     ["Venue notes", event.venue_notes],
     ["Parking", event.parking_info],
     ["Accessibility", event.accessibility_info],

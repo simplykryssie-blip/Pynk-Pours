@@ -23,8 +23,9 @@ export const metadata: Metadata = {
     title: "PynkPours",
     description: "SIP • CONNECT • CREATE — Where ideas meet opportunity.",
   },
-  // Not indexable until the owner approves launch.
-  robots: { index: false, follow: false },
+  // Search engines may index only the production site (SITE_INDEXABLE=true).
+  // The preview and local builds stay hidden. Private pages opt out individually.
+  robots: process.env.SITE_INDEXABLE === "true" ? { index: true, follow: true } : { index: false, follow: false },
 };
 
 export const viewport: Viewport = {

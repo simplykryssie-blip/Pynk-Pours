@@ -40,7 +40,7 @@ export async function startCheckout(_prev: CheckoutState, form: FormData): Promi
 
   const event = await getEventBySlug(c.eventSlug);
   if (!event) return { status: "error", message: CHECKOUT_ERRORS.event_unavailable };
-  if (event.min_age && !c.ageConfirmed) return { status: "error", message: "Please confirm every guest meets the minimum age.", fieldErrors: { age_confirm: "Required." } };
+  if (!c.ageConfirmed) return { status: "error", message: "Please confirm every guest meets the minimum age.", fieldErrors: { age_confirm: "Required." } };
 
   const db = serviceDb();
   const { token, hash } = orderTokenFor(c.idempotencyKey);

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { contact, contactDetails } from "@/content/site";
 import { ContactForm } from "@/components/forms/ContactForm";
 import { PageHero } from "@/components/site/PageHero";
-import { MailIcon } from "@/components/ui/icons";
+import { MailIcon, PinIcon } from "@/components/ui/icons";
+import { SocialLinks } from "@/components/site/SocialLinks";
 import { Container, Eyebrow } from "@/components/ui/primitives";
 
 export const metadata: Metadata = { title: "Contact", description: contact.body };
@@ -23,6 +24,16 @@ export default function ContactPage() {
                 <a href={`mailto:${contactDetails.email}`} className="underline-offset-4 hover:underline">{contactDetails.email}</a>
               </p>
             )}
+            {contactDetails.location && (
+              <p className="mt-3 flex items-center gap-3">
+                <PinIcon className="text-pp-pink-strong" />
+                <span>{contactDetails.location}</span>
+              </p>
+            )}
+            <div className="mt-6">
+              <p className="text-sm font-medium text-pp-black/80">Follow along</p>
+              <SocialLinks tone="light" className="mt-2" />
+            </div>
           </div>
           <div className="bg-white p-6 sm:p-8"><ContactForm /></div>
         </Container>
