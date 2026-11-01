@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useFormStatus } from "react-dom";
 import { cx } from "@/components/ui/primitives";
 import type { ActionState } from "@/server/admin/common";
@@ -50,8 +51,13 @@ export function Input({ name, label, state, hint, required, defaultValue, classN
   return (
     <div className={className}>
       <Label id={f.id} label={label} required={required} />
-      <input id={f.id} name={name} type={type} required={required} defaultValue={val(state, name, defaultValue)}
-        aria-invalid={f.err ? true : undefined} aria-describedby={f.describedBy} className={input(Boolean(f.err))} {...rest} />
+      {type === "password" ? (
+        <PasswordInput tone="light" id={f.id} name={name} required={required} defaultValue={val(state, name, defaultValue)}
+          aria-invalid={f.err ? true : undefined} aria-describedby={f.describedBy} className={input(Boolean(f.err))} {...rest} />
+      ) : (
+        <input id={f.id} name={name} type={type} required={required} defaultValue={val(state, name, defaultValue)}
+          aria-invalid={f.err ? true : undefined} aria-describedby={f.describedBy} className={input(Boolean(f.err))} {...rest} />
+      )}
       <Help id={f.id} hint={hint} err={f.err} />
     </div>
   );

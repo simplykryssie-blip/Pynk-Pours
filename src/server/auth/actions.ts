@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { withinRateLimit } from "../request";
+import { envSubset } from "../env";
 import { serviceDb } from "../supabase";
 import { sessionDb } from "./session";
 import { homeFor, staffForAction, type StaffRole } from "./staff";
@@ -123,4 +124,76 @@ export async function changePassword(_prev: AuthState, form: FormData): Promise<
   const { error } = await staff.db.auth.updateUser({ password: pw.data });
   if (error) return { status: "error", message: "Couldn't update your password. Please try again." };
   return { status: "success", message: "Your password has been updated." };
+}
+
+// ---------------------------------------------------------------------------
+// Password reset (email link). Same generic answer whether or not the email
+// exists. The link opens /admin/auth/recovery, which starts a short recovery
+// session. If an authenticator is enrolled, the new password also needs a code.
+// ---------------------------------------------------------------------------
+
+const RESET_SENT =
+  "If that email belongs to a PynkPours staff account, a reset link is on its way. It expires in 1 hour. Open it on this device, in this browser.";
+
+/** Base URL that staff use (the admin host when configured). */
+function staffBaseUrl(): string {
+  const adminHost = process.env.ADMIN_HOST?.trim().toLowerCase();
+  if (adminHost && /^[a-z0-9.-]+$/.test(adminHost)) return `https://${adminHost}`;
+  return envSubset(["NEXT_PUBLIC_SITE_URL"]).NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+}
+
+export async function requestPasswordReset(_prev: AuthState, form: FormData): Promise<AuthState> {
+  const email = z.string().trim().toLowerCase().pipe(z.email()).safeParse(form.get("email"));
+  if (!email.success) return { status: "error", message: "Enter the email address you sign in with." };
+  if (!(await withinRateLimit("admin-reset", 5, 3600)) || !(await withinRateLimit("admin-reset-email", 3, 3600, email.data))) {
+    return { status: "error", message: "Too many reset requests. Please wait an hour and try again." };
+  }
+  const db = await sessionDb();
+  const { error } = await db.auth.resetPasswordForEmail(email.data, { redirectTo: `${staffBaseUrl()}/admin/auth/recovery` });
+  if (error) console.error(`[password-reset] request failed: ${error.message}`);
+  return { status: "success", message: RESET_SENT };
+}
+
+export async function completePasswordReset(_prev: AuthState, form: FormData): Promise<AuthState> {
+  const db = await sessionDb();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) return { status: "error", message: "This reset link has expired. Request a new one." };
+
+  const { data: profile } = await serviceDb()
+    .from("admin_profiles").select("is_active").eq("user_id", user.id).maybeSingle();
+  if (!profile?.is_active) {
+    await db.auth.signOut();
+    return { status: "error", message: "This account can't sign in. Contact the PynkPours owner." };
+  }
+
+  const pw = passwordSchema.safeParse(form.get("password"));
+  if (!pw.success) return { status: "error", message: pw.error.issues[0].message };
+  if (pw.data !== form.get("confirm")) return { status: "error", message: "The passwords don't match." };
+
+  const { data: factors } = await db.auth.mfa.listFactors();
+  const factor = factors?.totp?.find((f) => f.status === "verified");
+  if (factor) {
+    const { data: aal } = await db.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.currentLevel !== "aal2") {
+      const code = codeSchema.safeParse(form.get("code"));
+      if (!code.success) return { status: "error", message: code.error.issues[0].message };
+      if (!(await withinRateLimit("admin-mfa", 10, 600))) {
+        return { status: "error", message: "Too many attempts. Please wait 10 minutes and try again." };
+      }
+      const { error } = await db.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.data });
+      if (error) return { status: "error", message: "That code didn't work. Check your app and try again." };
+    }
+  }
+
+  const { error } = await db.auth.updateUser({ password: pw.data });
+  if (error) {
+    return {
+      status: "error",
+      message: error.code === "same_password"
+        ? "Choose a password different from your current one."
+        : "Couldn't update your password. Request a new reset link and try again.",
+    };
+  }
+  await db.auth.signOut();
+  redirect("/admin/login?reset=1");
 }

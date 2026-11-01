@@ -8,7 +8,8 @@ import { adminHostRedirect } from "@/lib/admin-host";
  *    without any session straight to the sign-in page. Full authorization
  *    (MFA level + staff role) is enforced again by every page and action.
  */
-const PUBLIC_ADMIN_PATHS = ["/admin/login"];
+// Reachable without a session (the reset pages handle a missing/expired session themselves).
+const PUBLIC_ADMIN_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-password", "/admin/auth/recovery"];
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;

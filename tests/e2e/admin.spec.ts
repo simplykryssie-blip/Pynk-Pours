@@ -39,20 +39,34 @@ test.describe("access control", () => {
     await resetRateLimits();
     await page.goto("/admin/login");
     await page.getByLabel("Email").fill(STAFF.owner.email);
-    await page.getByLabel("Password").fill("not-the-password");
+    await page.getByLabel("Password", { exact: true }).fill("not-the-password");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator("form").getByRole("alert")).toHaveText("Incorrect email or password.");
     await page.getByLabel("Email").fill("nobody@example.test");
-    await page.getByLabel("Password").fill("whatever-password");
+    await page.getByLabel("Password", { exact: true }).fill("whatever-password");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator("form").getByRole("alert")).toHaveText("Incorrect email or password.");
+  });
+
+  test("password can be shown and hidden again to check typing", async ({ page }) => {
+    await page.goto("/admin/login");
+    const pw = page.getByLabel("Password", { exact: true });
+    await pw.fill("Typed-Check-123");
+    await expect(pw).toHaveAttribute("type", "password");
+    await page.getByRole("button", { name: "Show password" }).click();
+    await expect(pw).toHaveAttribute("type", "text");
+    await expect(pw).toHaveValue("Typed-Check-123");
+    await expect(page.getByRole("button", { name: "Hide password" })).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Hide password" }).click();
+    await expect(pw).toHaveAttribute("type", "password");
+    await expect(pw).toHaveValue("Typed-Check-123");
   });
 
   test("a password alone never reaches the dashboard (MFA required)", async ({ page }) => {
     await resetRateLimits();
     await page.goto("/admin/login");
     await page.getByLabel("Email").fill(STAFF.owner.email);
-    await page.getByLabel("Password").fill(STAFF.owner.password);
+    await page.getByLabel("Password", { exact: true }).fill(STAFF.owner.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.waitForURL(/\/admin\/mfa/);
     for (const path of ["/admin", "/admin/events", "/admin/registrations"]) {
@@ -78,7 +92,7 @@ test.describe("access control", () => {
     await page.goto("/admin/login");
     for (let i = 0; i < 6; i++) {
       await page.getByLabel("Email").fill(STAFF.checkin.email);
-      await page.getByLabel("Password").fill(`wrong-${i}`);
+      await page.getByLabel("Password", { exact: true }).fill(`wrong-${i}`);
       // Wait for each attempt's server round-trip before the next one.
       await Promise.all([
         page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/admin/login")),
@@ -429,7 +443,7 @@ test.describe("staff management (owner only)", () => {
     await resetRateLimits();
     await staffPage.goto("/admin/login");
     await staffPage.getByLabel("Email").fill(email);
-    await staffPage.getByLabel("Password").fill(temp);
+    await staffPage.getByLabel("Password", { exact: true }).fill(temp);
     await staffPage.getByRole("button", { name: "Sign in" }).click();
     await expect(staffPage).toHaveURL(/\/admin\/mfa\/setup$/);
     await staffPage.goto("/admin/check-in");
