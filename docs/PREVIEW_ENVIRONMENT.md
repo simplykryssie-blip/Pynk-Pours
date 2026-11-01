@@ -69,7 +69,7 @@ checked in by **manual lookup only**.
 4. **Owner (dashboard):** Authentication → Users → Add user → Create new user.
    - Email: `pynkpours@gmail.com`. Choose your own password. Do not share it.
    - Tick **Auto Confirm User**.
-5. Then the owner role is granted with one SQL statement (an `admin_profiles` row with role `owner`).
+5. **Done 2026-11-01:** the owner created `pynkpours@gmail.com` (confirmed) in the dashboard. The owner role was then granted with one `admin_profiles` insert (role `owner`, active), and the audit log recorded it as a system action.
    - The first sign-in at `/admin` asks for the password and then enrolls the authenticator app.
 6. Vercel project connected to `simplykryssie-blip/Pynk-Pours`, with Deployment Protection confirmed **before** the first deployment. Environment variables:
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
