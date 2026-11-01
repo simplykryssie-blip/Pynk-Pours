@@ -7,7 +7,7 @@ The live database for pynkpours.com. Real data only: no SAMPLE content is ever l
 | Supabase organization | PynkPours (`qcrysnhugttxjirzvwlf`), Free plan (owner's choice) |
 | Production project | **PynkPours Production**, ref `yottjzukshfmeykdsmzi`, region `us-east-1`, Postgres 17 |
 | Created | 2026-11-01, after the owner deleted the empty original project (`pkqzhchzmthigxqiwnqo`) to stay within the free plan's 2-project limit |
-| Vercel project | **pynkpours** (`prj_8a1BNt1uDRM4v3ZJNShAus1eKNth`), Node 22.x, preview deployments disabled (they would share the production database). Domains: `pynkpours.com`, and `www.pynkpours.com` 308-redirecting to it. **Vercel Authentication on all deployments until the owner approves launch.** GoDaddy DNS: `@` A 76.76.21.21 only; `www` CNAME to Vercel. |
+| Vercel project | **pynkpours** (`prj_8a1BNt1uDRM4v3ZJNShAus1eKNth`), Node 22.x, preview deployments disabled (they would share the production database). Domains: `pynkpours.com`, and `www.pynkpours.com` 308-redirecting to it. **Launched 2026-11-01 at the owner's request ("go live with no events"):** protection is now Standard (`prod_deployment_urls_and_all_previews`). The custom domains are public; generated deployment URLs still require Vercel sign-in. GoDaddy DNS: `@` A 76.76.21.21 only; `www` CNAME to Vercel. |
 | Preview (separate) | PynkPours Preview, `msbkdryzxqznksmiftqx`: see `docs/PREVIEW_ENVIRONMENT.md` |
 
 ## Database schema
@@ -53,3 +53,10 @@ Security advisor: no errors. The same INFO/WARN findings as the preview, all int
 4. **Done:** `pynkpours.com` and `www` attached. `admin.pynkpours.com` moved from the preview: the owner removed the domain and `ADMIN_HOST` there; the domain and `ADMIN_HOST=admin.pynkpours.com` are now on production. The preview admin is at `pynkpours-preview.vercel.app/admin`.
 5. Stripe test-mode run (new session with `STRIPE_SECRET_KEY` and the Stripe domains allowed). Then live keys, pasted by the owner into Vercel, and the live webhook endpoint.
 6. Email (Resend) with DNS records, ticket emails and QR codes (Stage E), then the final review (Stage F).
+
+## Launch status (2026-11-01)
+
+- Public: `pynkpours.com` (with `www` redirecting to it) and `admin.pynkpours.com` (password + authenticator).
+- No events yet.
+- Checkout is off (`CHECKOUT_ENABLED=false`) until the Stripe test-mode run passes.
+- Search indexing is on.
