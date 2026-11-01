@@ -33,6 +33,28 @@ test("mobile menu closes with Escape and returns focus", async ({ page, isMobile
   await expect(page.getByRole("button", { name: "Open menu" })).toBeFocused();
 });
 
+test("open mobile menu fills the screen below the header and is not covered", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "mobile only");
+  await page.goto("/about");
+  await openMobileMenu(page);
+  const menu = page.getByRole("navigation", { name: "Mobile" });
+  await expect(menu).toBeVisible();
+  // Regression: a backdrop-filter on the sticky header once squashed the fixed panel to ~65px.
+  const panelHeight = await menu.evaluate((n) => n.parentElement!.getBoundingClientRect().height);
+  const viewport = page.viewportSize()!;
+  expect(panelHeight).toBeGreaterThan(viewport.height - 100);
+  // Every item is really on top at its own position (not clipped or painted under page content).
+  for (const label of ITEMS) {
+    const link = menu.getByRole("link", { name: label, exact: true });
+    const onTop = await link.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return hit === el || el.contains(hit);
+    });
+    expect(onTop, `${label} should be visible on top`).toBe(true);
+  }
+});
+
 test("logo returns home; header CTA goes to events", async ({ page, isMobile }) => {
   await page.goto("/contact");
   await page.getByRole("link", { name: "PynkPours — home" }).first().click();

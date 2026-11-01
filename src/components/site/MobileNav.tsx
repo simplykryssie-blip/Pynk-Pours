@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CloseIcon, MenuIcon } from "@/components/ui/icons";
 import { buttonClass, cx } from "@/components/ui/primitives";
 
@@ -50,9 +51,11 @@ export function MobileNav({ items }: { items: readonly Item[] }) {
       >
         {open ? <CloseIcon width={26} height={26} /> : <MenuIcon width={26} height={26} />}
       </button>
+      {/* Portalled to <body>: the sticky header uses backdrop-filter, which would make it the
+          containing block for this fixed panel and squash it to the header's height. */}
+      {open && createPortal(
       <div
         id={panelId}
-        hidden={!open}
         className="fixed inset-x-0 top-[72px] bottom-0 z-40 overflow-y-auto border-t border-white/10 bg-pp-black px-6 py-8"
       >
         <nav aria-label="Mobile">
@@ -80,7 +83,9 @@ export function MobileNav({ items }: { items: readonly Item[] }) {
             Explore events
           </Link>
         </nav>
-      </div>
+      </div>,
+        document.body,
+      )}
     </div>
   );
 }
