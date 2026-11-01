@@ -1,4 +1,5 @@
 import "server-only";
+import { connection } from "next/server";
 import { publicDb } from "../supabase";
 
 /** Public event fields (matches the anon column grant on public.events). */
@@ -7,7 +8,7 @@ export const PUBLIC_EVENT_COLUMNS =
   "starts_at, ends_at, timezone, is_online, venue_name, venue_address, venue_notes, dress_code, " +
   "parking_info, accessibility_info, refund_policy, min_age, agenda, speakers, faqs, currency, " +
   "max_tickets_per_order, show_remaining_count, registration_mode, sold_out_behavior, status, " +
-  "is_featured, published_at";
+  "is_featured, published_at, registration_closes_at";
 
 export type RegistrationMode = "tickets" | "coming_soon" | "closed";
 export type EventStatus = "draft" | "published" | "cancelled" | "completed";
@@ -48,6 +49,7 @@ export interface PublicEvent {
   status: EventStatus;
   is_featured: boolean;
   published_at: string | null;
+  registration_closes_at: string | null;
 }
 
 export type TicketDisplayState =
@@ -94,6 +96,7 @@ function sortUpcoming(a: PublicEvent, b: PublicEvent) {
 
 /** All publicly visible events (RLS: never drafts). */
 export async function listPublicEvents(): Promise<PublicEvent[]> {
+  await connection(); // request-time data: never fetched during static prerendering
   const { data, error } = await publicDb()
     .from("events")
     .select(PUBLIC_EVENT_COLUMNS)
@@ -123,6 +126,7 @@ export async function getFeaturedEvent(): Promise<PublicEvent | null> {
 }
 
 export async function getEventBySlug(slug: string): Promise<PublicEvent | null> {
+  await connection();
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) || slug.length > 80) return null;
   const { data, error } = await publicDb()
     .from("events")
@@ -134,6 +138,7 @@ export async function getEventBySlug(slug: string): Promise<PublicEvent | null> 
 }
 
 export async function getTicketOptions(eventId: string): Promise<TicketOption[]> {
+  await connection();
   const { data, error } = await publicDb().rpc("get_event_ticket_options", { p_event_id: eventId });
   if (error) fail("getTicketOptions", error);
   return (data ?? []) as TicketOption[];
@@ -145,4 +150,19 @@ export function eventImageUrl(path: string | null): string | null {
   if (/^https:\/\//.test(path)) return path;
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   return base ? `${base}/storage/v1/object/public/event-media/${path.replace(/^\/+/, "")}` : null;
+}
+
+export interface GalleryImage { id: string; storage_path: string; alt_text: string | null; width: number | null; height: number | null }
+
+/** Gallery images the public may see (RLS: show_in_gallery + visible event). */
+export async function getGallery(eventId: string, db = publicDb()): Promise<GalleryImage[]> {
+  const { data, error } = await db
+    .from("event_media")
+    .select("id, storage_path, alt_text, width, height")
+    .eq("event_id", eventId)
+    .eq("show_in_gallery", true)
+    .order("sort_order")
+    .returns<GalleryImage[]>();
+  if (error) fail("getGallery", error);
+  return data ?? [];
 }

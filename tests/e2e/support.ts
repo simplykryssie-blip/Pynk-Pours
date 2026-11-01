@@ -36,7 +36,13 @@ export async function expectNoHorizontalOverflow(page: Page) {
     const offenders = [...document.querySelectorAll("body *")]
       .filter((el) => {
         const r = el.getBoundingClientRect();
-        return r.width > 0 && r.right > w + 1 && getComputedStyle(el).position !== "fixed";
+        if (!(r.width > 0 && r.right > w + 1) || getComputedStyle(el).position === "fixed") return false;
+        // Content inside an intentional horizontal scroll region (wide tables) is fine.
+        for (let p = el.parentElement; p; p = p.parentElement) {
+          const ox = getComputedStyle(p).overflowX;
+          if (ox === "auto" || ox === "scroll") return false;
+        }
+        return true;
       })
       .slice(0, 5)
       .map((el) => `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 60)}`);

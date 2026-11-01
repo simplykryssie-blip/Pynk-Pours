@@ -156,3 +156,115 @@ These are proven at the **database and function level**. Each item still needs e
 
 ### Screenshots
 `docs/qa/stage-b/`: Home, About, Experiences, Events, Brunch, sample event, Partners and Contact, each at 375 px and 1280 px.
+
+---
+
+## Stage C: Admin dashboard (local only)
+
+**Environment:** local development workspace only, using the **official Supabase local stack** (Docker) with SAMPLE and DEMO data. Nothing has been deployed. No external or production account was connected.
+**Date:** 2026-11-01
+
+### What was built
+| Requirement | Delivered |
+|---|---|
+| **Secure admin sign-in with authenticator MFA** | Email and password, then a 6-digit authenticator code (TOTP; works with Google or Microsoft Authenticator, 1Password and similar apps). First sign-in walks through QR-code setup.<br><br>**MFA is enforced in the database:** staff permissions require an MFA-verified session (`aal2`), so a stolen password alone gets nothing, even through the raw API. The guard on every admin page and action checks the user, the MFA level and the database role.<br><br>Session cookies are httpOnly, so page scripts can't read them. Public sign-up is disabled. Sign-in and MFA attempts are rate limited, and every sign-in failure shows the same message, so nobody can test which emails have accounts. |
+| **Dashboard overview** | Upcoming events (published and drafts), registrations (paid orders), tickets sold, checked in, and ticket sales net of refunds. An upcoming-events table shows per-event tickets against capacity, check-ins and sales. Alerts appear for orders needing review and new inbox messages. |
+| **Event management** | **Create, edit, duplicate, publish, unpublish, archive and restore**, plus mark completed, cancel event, and delete a never-published draft.<br><br>Events have a full editor: basics; dates and times in the **event's own timezone** (stored as exact UTC times and safe across daylight-saving changes); location; registration settings; and a schedule, speaker and FAQ list editor.<br><br>Publishing rules are enforced by the database. Coming-soon events can be published with "date to be announced"; ticketed events need a date, venue and at least one ticket type. |
+| **Event images and promo assets** | Upload JPG, PNG or WebP up to 5 MB. Every image is **re-encoded on the server**, which proves it's a real image, **removes EXIF and GPS data** and resizes it. Set the cover image, add images to the public gallery, write image descriptions, copy a shareable link, or delete. Storage is admin-write-only, and files can't be listed publicly. |
+| **Ticket builder** | Custom names, prices (including free), quantity (or unlimited), max per order, **guests per ticket** (for example, a table for 4 gets 4 QR tickets), sales-open and sales-close times, Active/Paused/Closed, description and inclusions, edit, reorder, and delete (blocked once the ticket has orders).<br><br>Live counts for **sold / in checkout / left**. An **event-level registration deadline** caps every ticket's sales window. VIP is never required. |
+| **Registrations and attendees** | All orders across events, with search by name, email or order number and filters (paid, all, needs review). The order page shows the purchase, line items, attendees, ticket codes and check-in status. **Attendee corrections** are audited with before and after values.<br><br>Each event has an attendee list with search, **CSV exports** (attendees, sales, sign-ups) and get-notified/waitlist lists. Every export is recorded in the activity log. |
+| **Staff roles** | **Owner** (everything plus staff), **Admin** (events and sales), and **Check-in staff**: check-in only, with **no financial data** and no editing.<br><br>The owner adds staff (a temporary password is shown once, and the person must set up MFA at first sign-in), changes roles, removes or restores access (takes effect on their next request), and **resets a lost authenticator**. |
+| **Check-in (manual)** | Choose an event, see live attendance counts by ticket type, search by name, email, ticket code or order number, and check guests in with one tap (race-safe; scanner identity recorded). A recent check-ins list is shown. Camera QR scanning comes with digital tickets in Stage E. |
+| **Preview before publishing** | Renders the draft with **the same component the public site uses**, under a "Preview, not public" banner. The public URL stays not-found until you publish. |
+| **Phone-friendly admin** | A compact top bar and menu drawer on phones. Tables scroll sideways inside their own area, buttons are large enough to tap easily, and the forms work on phones. |
+| Also | **Inbox** for contact and partnership messages (mark handled or spam) and a newsletter CSV download. **Activity log**: a permanent, append-only record of changes and exports. **My account**: change password. No CRM, membership or marketing automation was added. |
+
+### Database changes (migration `20261101000900_admin.sql`)
+- **MFA-required staff role check**
+- **`archived_at`:** hidden from the public, cannot be published, cannot be ordered
+- **`registration_closes_at`**
+- **`event_media`** table, with the Storage bucket and its rules
+- **Admin functions:** duplicate event, reorder tickets, edit attendee, events overview (financial columns hidden from check-in staff), per-ticket statistics
+- **Direct attendee → order and attendee → ticket type links**, so the dashboard can load linked data
+- **Admin draft preview** in the ticket-options lookup
+- **Verified:** applied cleanly to the official Supabase Postgres 17 image, and `supabase db lint` is clean.
+
+### Commands run and results
+| Command | Result |
+|---|---|
+| `npm run verify` (lint, types, unit and database tests, build, bundle secret scan) | **Pass: 177 / 177** (49 unit, 128 database), build OK, no secrets in the browser bundle |
+| `npx playwright test` (public site and admin, phone 375 px and desktop 1280 px), fresh local data | **125 passed, 0 failed** (19 skipped by design: data-changing flows run once on desktop, and phone-only checks skip on desktop). **0 server-side errors** during the run |
+| `npx supabase db lint --level warning` | No schema errors |
+| Recorded walkthrough (`playwright.demo.config.ts`) | Pass. 19 captioned screenshots and 2 videos |
+
+### End-to-end admin tests (`tests/e2e/admin.spec.ts`)
+These use a **real password and authenticator code**. The test suite computes the codes exactly as a phone app does, and that generator is verified against the official RFC 6238 test values.
+
+- **Access control:**
+  - Signed-out visitors are redirected to sign-in.
+  - Exports are refused.
+  - The same generic message appears for a wrong password and an unknown email.
+  - **A password alone never reaches the dashboard.**
+  - First sign-in forces authenticator setup; later sign-ins require the code.
+  - Sign-in rate limiting works.
+- **Overview:** the numbers match the database exactly.
+- **Event lifecycle:**
+  - Validation errors are shown.
+  - Times are stored as the correct UTC instant (11:00 CDT becomes 16:00 UTC).
+  - The schedule and FAQ editors work.
+  - **Ticket builder:** price validation, two tiers, an edit, a reorder, and per-tier max/quantity/sales windows, all confirmed in the database.
+  - **Image upload:** stored as WebP, **EXIF removed**, set as cover; fake images are rejected.
+  - **Preview** shows the draft while the public URL is still not found.
+  - **Publish** makes it live with its cover; **unpublish** hides it.
+  - Edits appear in the activity log.
+  - **Duplicate** copies the event and its tickets as a draft.
+  - **Archive and restore** both work.
+- **Registrations:**
+  - Attendee search and the audited CSV export work.
+  - Correcting an attendee's name is saved.
+- **Check-in staff:**
+  - They land on Check-in and can't see Events, Registrations, Staff, Inbox, Activity log or Overview.
+  - Direct links redirect them with a "forbidden" notice; sales and newsletter exports return **403**.
+  - They can find a guest and check them in. The result stays visible, the scanner's identity is recorded, and a repeat check-in is refused.
+- **Staff management:**
+  - Adding staff works and the temporary password allows sign-in.
+  - **No access is possible until MFA setup is complete.**
+  - Removing access works, and both changes are audited.
+- **Inbox:** messages show, and "mark handled" works.
+- **Every admin page:** HTTP 200, no horizontal overflow, **no serious or critical accessibility violations**, no console errors. The phone menu works.
+
+### Bugs found and fixed during Stage C testing
+1. **Staff couldn't sign in.** Setting `[auth.email] enable_signup = false` disables email sign-in entirely in Supabase. Only the global `[auth] enable_signup = false` should be off. Fixed and recorded in `docs/RUNBOOK_PRODUCTION_SETUP.md`. Verified: staff sign-in works, and public sign-up is refused.
+2. **Unticked checkboxes broke event creation.** Browsers omit unticked boxes from submissions, and validation rejected the missing field. Fixed, with a unit test that mimics a real browser submission.
+3. **The order and attendee pages couldn't load linked data.** The attendees table had no direct links to orders and ticket types. Added those links.
+4. **Confirmation messages disappeared.** After Publish, Archive or manual check-in, the button that held the message was replaced on refresh. Event operations now return with a lasting banner, and check-in uses a button that stays on screen.
+5. **Next.js internals were being swallowed.** The public site's safe-loading helper caught Next.js's internal signals, which polluted the logs. It now passes them through (`unstable_rethrow`), and event and session data are marked request-time only. The server log is clean.
+6. **Archiving a published event raised an error** instead of archiving. It now archives and unpublishes it; re-publishing while archived is blocked. The public gallery check also needed read access to the archive flag.
+7. **I accidentally created a stray local test owner** (`nobody@example.com`) when running the staff script with test arguments. It was found and removed immediately; it existed only in the local database.
+
+### Demonstration
+`docs/qa/stage-c/` contains:
+- **19 captioned screenshots:**
+  - sign-in and the overview
+  - creating an event
+  - the **ticket builder with three tiers**: Early Bird $35, General $45, and a Table for 4 at $160 that admits 4 guests
+  - image upload
+  - preview, publish, the live public page and the public listing
+  - registrations, order detail, staff and the activity log
+  - check-in staff on a phone, phone ticket management and the phone overview
+- **Two videos** of the same run, which are shared directly and not committed:
+  - `walkthrough-desktop.webm`
+  - `walkthrough-phone-checkin.webm`
+
+### Known limitations and open items
+1. **No online payments yet.** Refund tools and the "needs review" resolution arrive in **Stage D**. Sample orders were created with the same trusted database functions checkout will use.
+2. **No camera QR scanning or ticket emails yet (Stage E).** Check-in is manual lookup for now.
+3. **Removing staff access** takes effect on their next request, because the database checks access every time. Their sign-in session token expires within 1 hour, and that token alone grants no data.
+4. **Activity-log times** are shown in Central time.
+5. **The "Upcoming events" stat** counts published events; drafts are listed separately.
+6. **Only tested in Chromium** at phone and desktop sizes. Safari, Firefox and real-device checks are planned for Stage F.
+7. **Promotional uploads are images only**, not PDFs.
+8. **The CI workflow hasn't run on GitHub yet.** It will run on the next push, provided GitHub Actions is enabled for the repository.
+
+### Owner actions
+- Review the walkthrough screenshots and videos, and decide whether to approve **Stage D: guest checkout with Stripe in test mode**. That stage needs a Stripe account, created by you and kept in test mode.

@@ -15,7 +15,7 @@ export function EventCover({ event, className, priority }: {
   if (src) {
     return (
       <div className={cx("relative overflow-hidden bg-pp-charcoal", className)}>
-        <Image src={src} alt={event.cover_image_alt ?? ""} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" priority={priority} />
+        <Image src={src} alt={event.cover_image_alt ?? ""} fill unoptimized sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" priority={priority} />
       </div>
     );
   }

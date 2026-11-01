@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { DataUnavailableError, getTicketOptions, listUpcomingEvents, type PublicEvent } from "@/server/data/events";
 import { deriveRegistration } from "@/lib/registration";
 import { EventCard } from "./EventCard";
@@ -31,6 +32,7 @@ export async function loadSafely<T>(fn: () => Promise<T>): Promise<T | DataUnava
   try {
     return await fn();
   } catch (e) {
+    unstable_rethrow(e); // never swallow Next.js internals (postpone / notFound / redirect)
     if (e instanceof DataUnavailableError) return e;
     console.error("[events] unexpected error", e);
     return new DataUnavailableError("unexpected");

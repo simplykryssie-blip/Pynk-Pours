@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { unstable_rethrow } from "next/navigation";
 import { connection } from "next/server";
 import { listPublicEvents } from "@/server/data/events";
 
@@ -9,7 +10,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const events = await listPublicEvents();
     return [...pages, ...events.filter((e) => e.status !== "cancelled").map((e) => ({ url: `${site}/events/${e.slug}` }))];
-  } catch {
+  } catch (e) {
+    unstable_rethrow(e);
     return pages;
   }
 }

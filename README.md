@@ -2,7 +2,7 @@
 
 Event and ticketing platform for **PynkPours** (SIP • CONNECT • CREATE).
 
-**Status:** Stage B (public website) complete, **local development only, not deployed**. See `docs/STAGE_A_TECHNICAL_REVIEW.md` for the architecture and plan, and `docs/QA_REPORT.md` for test evidence for each stage.
+**Status:** Stage C (admin dashboard) complete, **local development only, not deployed**. See `docs/STAGE_A_TECHNICAL_REVIEW.md` for the architecture and plan, and `docs/QA_REPORT.md` for test evidence for each stage.
 
 ## Stack
 - Next.js 16 (App Router) + React 19 + TypeScript (strict) + Tailwind CSS 4
@@ -34,6 +34,24 @@ npm run dev                   # http://localhost:3000
 The local Supabase keys are Supabase's public **development** keys and only work against
 your own machine. Hosted keys go in Vercel's environment settings, never in files.
 
+## Admin dashboard (`/admin`)
+Staff-only. Requires a password **and** an authenticator-app code (TOTP). The MFA requirement is enforced by the database itself, not just the website.
+
+| Role | Can do |
+|---|---|
+| Owner | Everything, including adding/removing staff and resetting authenticators |
+| Admin | Events, tickets, images, registrations, sales, exports, inbox, activity log |
+| Check-in staff | Check-in only: find guests and check them in. No sales, orders or editing |
+
+Local demo data and staff (LOCAL ONLY):
+```bash
+scripts/db/reset-local-demo.sh   # reset local DB + SAMPLE events/orders + demo staff
+# owner@pynkpours.test / DemoOwner-Local-2026   (owner)
+# door@pynkpours.test  / DemoDoor-Local-2026    (check-in staff)
+# First sign-in shows a QR code: scan it with an authenticator app.
+```
+Create real staff with `scripts/create-staff.mts` (see `docs/RUNBOOK_PRODUCTION_SETUP.md`), or from **Staff** in the dashboard.
+
 ## Editing site copy
 All marketing text lives in `src/content/site.ts`, and each block notes its source.
 Event details (dates, venues, prices, agenda, FAQs, speakers) are **not** in code. They come
@@ -51,8 +69,9 @@ npm test            # both
 npm run verify      # lint + typecheck + tests + build + client-bundle secret scan
 
 # End-to-end (needs: npm run supabase:start && npm run seed:sample && npm run build)
-npm run test:e2e    # Playwright at 375px (phone) and 1280px (desktop): pages,
-                    # navigation, links, events, forms, accessibility (axe)
+npm run test:e2e    # Playwright at 375px (phone) and 1280px (desktop): public site
+                    # and admin (real password + TOTP sign-in), accessibility (axe)
+npx playwright test -c playwright.demo.config.ts   # recorded, captioned admin walkthrough
 ```
 
 The database tests refuse to run against anything except `127.0.0.1`.

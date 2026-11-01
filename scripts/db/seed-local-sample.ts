@@ -9,6 +9,7 @@
  * Refuses to run against anything except the local Supabase database.
  * Usage: npx tsx scripts/db/seed-local-sample.ts
  */
+import { createCipheriv, createHash, randomBytes } from "node:crypto";
 import { Client } from "pg";
 
 const DB_URL = process.env.LOCAL_DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
@@ -28,6 +29,12 @@ async function main() {
   await db.connect();
   await db.query("begin");
   // Idempotent: remove previous sample rows (only those created by this script).
+  // Commerce rows are append-only by design, so a re-seed starts from a database reset.
+  const existing = await db.query("select 1 from public.orders o join public.events e on e.id = o.event_id where e.slug like 'sample-%' limit 1");
+  if (existing.rowCount) {
+    console.error("Sample orders already exist. Run `npm run supabase:reset` first, then re-seed.");
+    process.exit(1);
+  }
   await db.query(`delete from public.event_interest where event_id in (select id from public.events where slug like 'sample-%' or slug = 'entrepreneurial-brunch')`);
   await db.query(`delete from public.ticket_types where event_id in (select id from public.events where slug like 'sample-%' or slug = 'entrepreneurial-brunch')`);
   await db.query(`delete from public.events where slug like 'sample-%' or slug = 'entrepreneurial-brunch'`);
@@ -115,9 +122,46 @@ async function main() {
     registration_mode: "coming_soon",
   });
 
+  // 6) SAMPLE orders for the on-sale event, so the dashboard has data to show.
+  //    Created through the same trusted RPCs real checkout uses (fictional people).
+  const tiers = (await db.query("select id, price_cents from public.ticket_types where event_id = $1 order by sort_order", [social])).rows;
+  const keyB64 = process.env.TICKET_CREDENTIAL_KEY ?? randomBytes(32).toString("base64");
+  const encrypt = (plain: string) => {
+    const iv = randomBytes(12);
+    const c = createCipheriv("aes-256-gcm", Buffer.from(keyB64, "base64"), iv);
+    const body = Buffer.concat([c.update(plain, "utf8"), c.final()]);
+    return ["v1", iv.toString("base64url"), body.toString("base64url"), c.getAuthTag().toString("base64url")].join(".");
+  };
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const people = [["Sample Guest Avery", 0, 2], ["Sample Guest Blake", 0, 1], ["Sample Guest Casey", 1, 1], ["Sample Guest Devon", 0, 3], ["Sample Guest Emery", 1, 2]] as const;
+  for (const [name, tierIdx, qty] of people) {
+    const email = `${name.split(" ").pop()!.toLowerCase()}@example.test`;
+    const payload = {
+      event_id: social, idempotency_key: `seed_${randomBytes(12).toString("hex")}`,
+      public_token_hash: createHash("sha256").update(randomBytes(32)).digest("hex"), hold_minutes: 35,
+      purchaser: { name, email, phone: null },
+      items: [{ ticket_type_id: tiers[tierIdx].id, quantity: qty }],
+      attendees: Array.from({ length: qty }, (_, i) => ({ ticket_type_id: tiers[tierIdx].id, full_name: i === 0 ? name : `${name} +${i}`, email, answers: {} })),
+    };
+    const order = (await db.query("select public.create_pending_order($1::jsonb) r", [JSON.stringify(payload)])).rows[0].r;
+    const att = (await db.query("select id from public.attendees where order_id = $1 order by position", [order.order_id])).rows;
+    const tickets = att.map((a) => {
+      const cred = randomBytes(32).toString("base64url");
+      return { attendee_id: a.id, credential_hash: createHash("sha256").update(cred).digest("hex"), credential_ciphertext: encrypt(cred),
+        manual_code: Array.from(randomBytes(8), (b) => alphabet[b % 32]).join("") };
+    });
+    await db.query("select public.fulfill_order($1, $2::jsonb, $3::jsonb)", [order.order_id,
+      JSON.stringify({ provider: "stripe", checkout_session_id: `cs_sample_${randomBytes(6).toString("hex")}`, payment_intent_id: `pi_sample_${randomBytes(6).toString("hex")}`, amount_total: order.total_cents, currency: "usd" }),
+      JSON.stringify(tickets)]);
+  }
+  // Two sample check-ins.
+  await db.query("update public.tickets set checked_in_at = now() - interval '5 minute' where id in (select id from public.tickets where event_id = $1 order by issued_at limit 2)", [social]);
+  // A sample contact message for the inbox.
+  await db.query("insert into public.contact_submissions (name, email, topic, message) values ('Sample Sender', 'sender@example.test', 'partnership', 'SAMPLE message: we would love to sponsor a future event.')");
+
   await db.query("commit");
   await db.end();
-  console.log("Seeded local SAMPLE data (5 events: 4 public, 1 draft).");
+  console.log("Seeded local SAMPLE data (5 events: 4 public, 1 draft; 5 sample orders / 9 tickets).");
 }
 
 main().catch((e) => {

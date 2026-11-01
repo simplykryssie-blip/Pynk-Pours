@@ -50,11 +50,13 @@ export async function as<T>(
   role: Role,
   userId: string | null,
   fn: (c: PoolClient) => Promise<T>,
+  opts: { aal?: "aal1" | "aal2" } = {},
 ): Promise<T> {
   const c = await db.pool.connect();
   try {
     await c.query("begin");
-    const claims = JSON.stringify(userId ? { sub: userId, role } : { role });
+    // Signed-in users default to an MFA-verified session (aal2), as staff must be.
+    const claims = JSON.stringify(userId ? { sub: userId, role, aal: opts.aal ?? "aal2" } : { role });
     await c.query("select set_config('request.jwt.claims', $1, true)", [claims]);
     await c.query(`set local role ${role}`);
     const out = await fn(c);
