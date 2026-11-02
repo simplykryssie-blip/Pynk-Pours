@@ -4,7 +4,7 @@ export const PEOPLE_SEGMENTS = [
   { value: "attended", label: "Attended an event" },
   { value: "missed", label: "Registered, didn't attend" },
   { value: "registered", label: "Registered or bought" },
-  { value: "inquired", label: "Sent a message" },
+  { value: "inquired", label: "Sent a message or form" },
   { value: "interested", label: "Waitlist / get notified" },
   { value: "subscribed", label: "Can receive marketing" },
   { value: "not_subscribed", label: "No marketing permission" },

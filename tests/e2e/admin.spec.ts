@@ -222,7 +222,7 @@ test.describe("owner dashboard", () => {
     expect(problems).toEqual([]);
   });
 
-  for (const path of ["/admin/events", "/admin/registrations", "/admin/check-in", "/admin/people", "/admin/inbox", "/admin/policies", "/admin/activity", "/admin/staff", "/admin/account", "/admin/events/new"]) {
+  for (const path of ["/admin/events", "/admin/registrations", "/admin/check-in", "/admin/people", "/admin/forms", "/admin/forms/new", "/admin/inbox", "/admin/policies", "/admin/activity", "/admin/staff", "/admin/account", "/admin/events/new"]) {
     test(`${path} renders cleanly and accessibly`, async ({ page }) => {
       const problems = watchConsole(page);
       await asStaff(page, "owner");
@@ -531,7 +531,7 @@ test.describe("check-in staff (restricted role)", () => {
     await expect(page).toHaveURL(/\/admin\/check-in/);
     const nav = page.getByRole("navigation", { name: /Admin/ }).first();
     if (await page.getByRole("button", { name: "Open admin menu" }).isVisible()) await page.getByRole("button", { name: "Open admin menu" }).click();
-    for (const hidden of ["Events", "Registrations", "People", "Staff", "Inbox", "Activity log", "Overview"]) {
+    for (const hidden of ["Events", "Registrations", "People", "Forms", "Staff", "Inbox", "Activity log", "Overview"]) {
       await expect(page.getByRole("link", { name: hidden, exact: true })).toHaveCount(0);
     }
     await expect(nav.or(page.getByRole("navigation", { name: "Admin mobile" }))).toBeTruthy();

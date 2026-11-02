@@ -14,6 +14,7 @@ const LABELS: Record<string, string> = {
   "insert:site_pages": "Published policy", "update:site_pages": "Edited policy",
   "insert:custom_pages": "Created page", "update:custom_pages": "Edited page", "delete:custom_pages": "Deleted page",
   "insert:people_notes": "Added notes on a person", "update:people_notes": "Edited notes on a person", "export.people": "Exported People list",
+  "insert:forms": "Created form", "update:forms": "Edited form", "update:form_submissions": "Updated form response", "delete:form_submissions": "Deleted form response", "export.form_responses": "Exported form responses",
   "event.duplicate": "Duplicated event", "attendee.update": "Edited attendee", "export.attendees": "Exported attendees",
   "export.sales": "Exported sales", "order.paid": "Order paid", "order.refund": "Refund", "ticket.undo_check_in": "Undid check-in",
   "ticket.cancel": "Cancelled ticket", "ticket.resend": "Resent ticket", "ticket.rotate_credential": "Reissued ticket QR",

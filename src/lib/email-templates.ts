@@ -147,3 +147,61 @@ export function contactReplyEmail(i: ContactReplyInput): EmailContent {
   const text = [`Hi ${first},`, "", i.reply, "", "PynkPours", "", `On ${i.sentAt}, you wrote:`, quoted].join("\n");
   return { subject, html: shell(subject, inner, footerText(i.replyTo)), text };
 }
+
+// ---------------------------------------------------------------- forms
+export interface FormAnswerLine { label: string; value: string }
+
+function answersBlock(lines: FormAnswerLine[]) {
+  return `<table role="presentation" width="100%" style="font-size:14px;border-collapse:collapse;margin:12px 0;">${lines
+    .map((l) => `<tr><td style="padding:6px 0;border-top:1px solid #eee;vertical-align:top;color:#6b5a62;width:40%;">${esc(l.label)}</td><td style="padding:6px 0 6px 12px;border-top:1px solid #eee;white-space:pre-wrap;">${esc(l.value || "—")}</td></tr>`)
+    .join("")}</table>`;
+}
+const answersText = (lines: FormAnswerLine[]) => lines.map((l) => `${l.label}: ${l.value || "—"}`).join("\n");
+
+/** To the applicant, right after they submit. */
+export function formReceiptEmail(i: { formTitle: string; name: string | null; statusUrl: string; message: string; answers: FormAnswerLine[]; replyTo: string }): EmailContent {
+  const title = `We received your ${i.formTitle}`;
+  const hello = i.name ? `Hi ${esc(i.name.split(/\s+/)[0])},` : "Hi,";
+  const inner = `<p style="margin:0 0 8px;font-size:15px;line-height:1.6;">${hello} thank you! We've received your response and will be in touch.</p>
+${i.message ? `<p style="font-size:15px;line-height:1.6;white-space:pre-wrap;">${esc(i.message)}</p>` : ""}
+<p style="font-size:15px;line-height:1.6;">You can check its status any time:</p>
+${button(i.statusUrl, "Check status")}
+<p style="font-size:13px;color:#6b5a62;">Keep this link private. A copy of what you sent:</p>
+${answersBlock(i.answers)}`;
+  const text = [i.name ? `Hi ${i.name.split(/\s+/)[0]},` : "Hi,", "", "Thank you! We've received your response and will be in touch.",
+    i.message, "", `Check status: ${i.statusUrl}`, "", "What you sent:", answersText(i.answers), "", `Questions? ${i.replyTo}`].join("\n");
+  return { subject: title, html: shell(title, inner, footerText(i.replyTo)), text };
+}
+
+/** To the PynkPours inbox, for each new response. */
+export function formNotificationEmail(i: { formTitle: string; name: string | null; email: string; reviewUrl: string; answers: FormAnswerLine[]; fileCount: number }): EmailContent {
+  const who = i.name ?? i.email;
+  const title = `New ${i.formTitle} response from ${who}`;
+  const inner = `<p style="font-size:14px;margin:0 0 4px;"><strong>From:</strong> ${esc(who)} &lt;${esc(i.email)}&gt;</p>
+${answersBlock(i.answers)}
+${i.fileCount ? `<p style="font-size:14px;">${i.fileCount} file${i.fileCount > 1 ? "s" : ""} attached in the dashboard.</p>` : ""}
+${button(i.reviewUrl, "Review in the dashboard")}`;
+  const text = [`From: ${who} <${i.email}>`, "", answersText(i.answers), "", `Review: ${i.reviewUrl}`].join("\n");
+  return { subject: `PynkPours: ${title}`, html: shell(title, inner, "Sent by a form on pynkpours.com. Reply to answer the applicant directly."), text };
+}
+
+const STATUS_COPY: Record<string, { title: string; line: string }> = {
+  approved: { title: "Good news about your", line: "We're happy to let you know your response has been approved." },
+  declined: { title: "An update on your", line: "Thank you for your interest. Unfortunately we aren't able to move forward this time." },
+  waitlisted: { title: "You're on the waitlist for your", line: "We've added you to our waitlist and will be in touch if a spot opens up." },
+  reviewing: { title: "We're reviewing your", line: "We're reviewing your response and will be in touch soon." },
+  new: { title: "An update on your", line: "There's an update on your response." },
+};
+
+/** To the applicant, when staff change the status and choose to notify them. */
+export function formStatusEmail(i: { formTitle: string; name: string | null; status: string; message: string; statusUrl: string; replyTo: string }): EmailContent {
+  const copy = STATUS_COPY[i.status] ?? STATUS_COPY.new;
+  const title = `${copy.title} ${i.formTitle}`;
+  const hello = i.name ? `Hi ${esc(i.name.split(/\s+/)[0])},` : "Hi,";
+  const inner = `<p style="margin:0 0 8px;font-size:15px;line-height:1.6;">${hello}</p>
+<p style="font-size:15px;line-height:1.6;">${esc(copy.line)}</p>
+${i.message ? `<div style="margin:12px 0;padding:12px 14px;background:#faf6f8;border-radius:6px;font-size:15px;line-height:1.6;white-space:pre-wrap;">${esc(i.message)}</div>` : ""}
+${button(i.statusUrl, "View status")}`;
+  const text = [i.name ? `Hi ${i.name.split(/\s+/)[0]},` : "Hi,", "", copy.line, "", i.message, "", `View status: ${i.statusUrl}`, "", `Questions? ${i.replyTo}`].join("\n");
+  return { subject: title, html: shell(title, inner, footerText(i.replyTo)), text };
+}

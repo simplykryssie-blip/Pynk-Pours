@@ -19,12 +19,13 @@ type Person = {
 
 const KIND: Record<string, string> = {
   order: "Bought tickets", ticket: "Ticket", attended: "Attended", interest: "Interested",
-  inquiry: "Sent a message", subscribed: "Subscribed", unsubscribed: "Unsubscribed",
+  inquiry: "Sent a message", form: "Form response", subscribed: "Subscribed", unsubscribed: "Unsubscribed",
 };
 
 function link(i: Item): string | null {
   if (i.kind === "order") return `/admin/registrations/${i.ref}`;
   if (i.kind === "inquiry") return `/admin/inbox?show=all#message-${i.ref}`;
+  if (i.kind === "form") return `/admin/forms/responses/${i.ref}`;
   if ((i.kind === "ticket" || i.kind === "attended" || i.kind === "interest") && i.event_id) return `/admin/events/${i.event_id}/registrations`;
   return null;
 }

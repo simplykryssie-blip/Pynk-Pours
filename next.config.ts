@@ -33,7 +33,7 @@ const nextConfig: NextConfig = {
       },
       // Guest token pages: never leak the token via Referer; never index.
       {
-        source: "/(t|orders)/:path*",
+        source: "/(t|orders|forms/status)/:path*",
         headers: [
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "X-Robots-Tag", value: "noindex, nofollow" },

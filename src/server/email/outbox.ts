@@ -3,8 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { after } from "next/server";
 import { eventWhen, eventWhere } from "@/components/events/format";
 import {
-  contactNotificationEmail, orderConfirmationEmail, ticketEmail, type EmailContent, type EventFacts,
+  contactNotificationEmail, formNotificationEmail, formReceiptEmail, formStatusEmail, orderConfirmationEmail, ticketEmail,
+  type EmailContent, type EventFacts,
 } from "@/lib/email-templates";
+import { answerText, type AnswerValue, type FormField } from "@/lib/forms";
 import { formatMoney } from "@/lib/money";
 import { publicSiteUrl } from "@/lib/site-url";
 import { orderTokenFor } from "../checkout/tokens";
@@ -22,7 +24,7 @@ import { emailConfigured, sendEmail, type OutgoingEmail } from "./resend";
 interface QueuedEmail {
   id: string;
   dedupe_key: string;
-  kind: "order_confirmation" | "ticket" | "ticket_resend" | "contact_notification";
+  kind: "order_confirmation" | "ticket" | "ticket_resend" | "contact_notification" | "form_receipt" | "form_notification" | "form_status";
   order_id: string | null;
   ticket_id: string | null;
   to_email: string;
@@ -111,6 +113,8 @@ async function build(db: SupabaseClient, m: QueuedEmail): Promise<Omit<OutgoingE
     };
   }
 
+  if (m.kind === "form_receipt" || m.kind === "form_notification" || m.kind === "form_status") return buildFormEmail(db, m);
+
   // contact_notification: dedupe_key is "contact:<submission id>"
   const submissionId = m.dedupe_key.split(":")[1];
   const { data: c, error } = await db
@@ -121,6 +125,42 @@ async function build(db: SupabaseClient, m: QueuedEmail): Promise<Omit<OutgoingE
 }
 
 class SkipEmail extends Error {}
+
+/**
+ * Form emails. dedupe_key: "form_receipt:<submission id>", "form_notification:<submission id>",
+ * "form_status:<status update id>". The applicant's private status link is included
+ * only in emails to the applicant (never to staff); it is decrypted from the stored copy.
+ */
+async function buildFormEmail(db: SupabaseClient, m: QueuedEmail): Promise<Omit<OutgoingEmail, "from" | "idempotencyKey">> {
+  const [, ref] = m.dedupe_key.split(":");
+  let submissionId = ref;
+  let update: { status: string; message: string } | null = null;
+  if (m.kind === "form_status") {
+    const { data: u } = await db.from("form_status_updates").select("submission_id, status, message").eq("id", ref).maybeSingle();
+    if (!u) throw new SkipEmail("status update deleted");
+    submissionId = u.submission_id;
+    update = u;
+  }
+  const { data: sub } = await db.from("form_submissions")
+    .select("id, name, email, data, status_token_ciphertext, forms(title, fields, confirmation_message)").eq("id", submissionId).maybeSingle();
+  if (!sub) throw new SkipEmail("response deleted");
+  const s = sub as unknown as { id: string; name: string | null; email: string; data: Record<string, AnswerValue>; status_token_ciphertext: string; forms: { title: string; fields: FormField[]; confirmation_message: string } };
+  const answers = s.forms.fields.map((f) => ({ label: f.label, value: answerText(s.data[f.key]) }));
+  const key = process.env.TICKET_CREDENTIAL_KEY;
+  if (!key) throw new Error("TICKET_CREDENTIAL_KEY is not set");
+  const statusUrl = publicSiteUrl(`/forms/status/${decryptCredential(s.status_token_ciphertext, key)}`);
+  if (m.kind === "form_notification") {
+    const { count } = await db.from("form_files").select("id", { count: "exact", head: true }).eq("submission_id", s.id);
+    const content = formNotificationEmail({ formTitle: s.forms.title, name: s.name, email: s.email, answers, fileCount: count ?? 0, reviewUrl: staffUrl(`/admin/forms/responses/${s.id}`) });
+    return { to: m.to_email, replyTo: s.email, ...content };
+  }
+  if (m.kind === "form_receipt") {
+    const content = formReceiptEmail({ formTitle: s.forms.title, name: s.name, statusUrl, message: s.forms.confirmation_message, answers, replyTo: replyTo() });
+    return { to: m.to_email, replyTo: replyTo(), ...content };
+  }
+  const content = formStatusEmail({ formTitle: s.forms.title, name: s.name, status: update!.status, message: update!.message, statusUrl, replyTo: replyTo() });
+  return { to: m.to_email, replyTo: replyTo(), ...content };
+}
 
 export async function processOutbox(limit = 20, db: SupabaseClient = serviceDb()): Promise<OutboxResult> {
   if (!emailConfigured()) return { claimed: 0, sent: 0, failed: 0, skipped: "email not configured" };
