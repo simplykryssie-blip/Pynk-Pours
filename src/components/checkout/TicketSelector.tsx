@@ -46,7 +46,7 @@ export function TicketSelector({ slug, tiers, maxAdmissions }: { slug: string; t
       </ul>
       <div className="flex items-center justify-between text-pp-cream">
         <span>{admissions} guest{admissions === 1 ? "" : "s"}</span>
-        <span className="font-serif text-2xl">{formatMoney(total, tiers[0]?.currency ?? "usd")}</span>
+        <span className="font-serif text-2xl">{total === 0 && tiers.every((t) => t.price_cents === 0) ? "Free" : formatMoney(total, tiers[0]?.currency ?? "usd")}</span>
       </div>
       <Link
         href={sel ? `/events/${slug}/checkout?sel=${encodeURIComponent(sel)}` : "#"}
@@ -56,7 +56,11 @@ export function TicketSelector({ slug, tiers, maxAdmissions }: { slug: string; t
       >
         Continue
       </Link>
-      <p className="text-xs text-pp-cream/60">No account needed. You&apos;ll enter each guest&apos;s details next, then pay securely with Stripe.</p>
+      <p className="text-xs text-pp-cream/60">
+        {tiers.every((t) => t.price_cents === 0)
+          ? "No account needed and it's free. You'll enter each guest's details next, and everyone gets their own ticket by email."
+          : "No account needed. You'll enter each guest's details next, then pay securely with Stripe."}
+      </p>
     </div>
   );
 }

@@ -509,3 +509,12 @@ Both migrations were applied to the production and preview databases with Supaba
 **Tests:** 7 unit (field rules, response validation, upload path checks), 6 database (visibility, permissions, attribution/audit, outbox kinds, People integration, export audit, delete rules) and browser tests for the whole flow: build from the template and add a question → open it → a vendor applies at phone width with a real photo upload (errors first, then success) → receipt and inbox emails → owner downloads the actual JPEG, approves with a message → vendor's email and status page update → CSV; check-in staff are refused; accessibility (no serious issues) on the builder, public form, status page and response page. **Totals (local): 237 unit/database, 18 integration, 166 browser tests passed, 0 failed.**
 
 **Known follow-ups:** uploads started but never submitted stay in the private bucket's `pending/` folder; a periodic clean-up will be added with the Vendors work.
+
+## Free events while online payments are off (2026-11-06)
+
+**Owner request: "I need a way to host free events."** Free events already existed (a $0 ticket type issues free tickets with QR codes, no payment), but production runs with `CHECKOUT_ENABLED=false` until Stripe is approved, and that switch also blocked $0 registrations: free events showed "registration opening soon".
+- Now **free tickets can always be registered for**. Paid tickets still need online payments switched on, enforced in three places: the event page (only free tiers are offered, with "Paid ticket options are opening soon" when an event also has paid tiers), the registration page (a paid selection is refused), and the server action (checks ticket prices before any order is created, and releases any order with a total above $0 as a safety net).
+- Free-only events say "Register (free)", show "Free" instead of $0.00, and don't mention payment.
+- Paid-only events are unchanged: "Notify me when registration opens".
+
+**Tests:** the browser tests now also run a second copy of the site with payments **off** (as in production): free registration end to end (tickets with QR codes), paid tiers hidden, a paid ticket refused both by link and by editing the form in the browser (no order created), paid-only events still collecting "notify me" sign-ups. **Totals (local): 237 unit/database, 18 integration, 169 browser tests passed, 0 failed.**

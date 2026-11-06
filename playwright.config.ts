@@ -31,6 +31,15 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
+      // A second copy of the site with online payments OFF, like production before
+      // Stripe is approved: free registration must still work (tests/e2e/free-events.spec.ts).
+      command: `npx next start -p ${PORT + 1}`,
+      url: `http://localhost:${PORT + 1}`,
+      env: { CHECKOUT_ENABLED: "false" },
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+    {
       // LOCAL STRIPE TEST DOUBLE (not Stripe) — see tests/support/stripe-double.mts
       command: "npx tsx --env-file=.env.local tests/support/stripe-double.mts",
       url: "http://127.0.0.1:12111/__test/health",

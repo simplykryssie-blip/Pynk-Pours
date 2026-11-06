@@ -8,8 +8,9 @@ import type { PublicEvent, TicketOption } from "@/server/data/events";
 
 /**
  * The event page's call to action, driven by deriveRegistration().
- * Online checkout is enabled in Stage D; until then on-sale events collect
- * "notify me when registration opens" sign-ups instead of taking payment.
+ * Free tickets can always be registered for. Paid tickets are sold only when
+ * online payments are switched on (CHECKOUT_ENABLED); until then a paid-only
+ * event collects "notify me when registration opens" sign-ups instead.
  */
 export function RegistrationPanel({ event, registration, options = [], checkout = false }: {
   event: PublicEvent; registration: Registration; options?: TicketOption[]; checkout?: boolean;
@@ -24,15 +25,21 @@ export function RegistrationPanel({ event, registration, options = [], checkout 
           <InterestForm eventSlug={event.slug} kind="notify" cta="Get notified" />
         </div>
       );
-    case "on_sale":
-      if (checkout) {
+    case "on_sale": {
+      const onSale = options.filter((o) => o.display_state === "on_sale");
+      const sellable = checkout ? onSale : onSale.filter((o) => o.price_cents === 0);
+      if (sellable.length > 0) {
+        const allFree = sellable.every((o) => o.price_cents === 0);
         return (
           <div className="space-y-4">
-            <p className={heading}>Get tickets</p>
+            <p className={heading}>{allFree ? "Register (free)" : "Get tickets"}</p>
             <TicketSelector slug={event.slug} maxAdmissions={event.max_tickets_per_order}
-              tiers={options.filter((o) => o.display_state === "on_sale").map((o) => ({
+              tiers={sellable.map((o) => ({
                 id: o.id, name: o.name, price_cents: o.price_cents, currency: o.currency, admits_per_unit: o.admits_per_unit, max_purchasable: o.max_purchasable,
               }))} />
+            {sellable.length < onSale.length && (
+              <p className="text-sm text-pp-cream/75">Paid ticket options are opening soon.</p>
+            )}
           </div>
         );
       }
@@ -47,6 +54,7 @@ export function RegistrationPanel({ event, registration, options = [], checkout 
           <LinkButton href="#tickets" variant="secondary" className="w-full">View ticket options</LinkButton>
         </div>
       );
+    }
     case "not_yet_on_sale":
       return (
         <div className="space-y-4">

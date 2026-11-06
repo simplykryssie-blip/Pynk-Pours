@@ -28,7 +28,6 @@ function siteUrl() {
 }
 
 export async function startCheckout(_prev: CheckoutState, form: FormData): Promise<CheckoutState> {
-  if (!checkoutEnabled()) return { status: "error", message: "Online checkout isn't available yet." };
   if (looksAutomated(form)) return { status: "error", message: "Please wait a moment and try again." };
 
   const parsed = parseCheckoutForm(form);
@@ -44,6 +43,14 @@ export async function startCheckout(_prev: CheckoutState, form: FormData): Promi
   if (!c.ageConfirmed) return { status: "error", message: "Please confirm every guest meets the minimum age.", fieldErrors: { age_confirm: "Required." } };
 
   const db = serviceDb();
+  // Free registrations are always open; paid tickets need online payments switched on.
+  const paidOn = checkoutEnabled();
+  if (!paidOn) {
+    const { data: tiers } = await db.from("ticket_types").select("price_cents").eq("event_id", event.id).in("id", c.items.map((i) => i.ticket_type_id));
+    if (!tiers || tiers.length === 0 || tiers.some((t) => t.price_cents > 0)) {
+      return { status: "error", message: "Paid tickets aren't on sale online yet." };
+    }
+  }
   const { token, hash } = orderTokenFor(c.idempotencyKey);
   const { data: order, error } = await db.rpc("create_pending_order", {
     p_payload: {
@@ -64,6 +71,12 @@ export async function startCheckout(_prev: CheckoutState, form: FormData): Promi
 
   // Double-submit / back-button: never create a second order or charge.
   if (o.existing && o.status !== "pending") redirect(orderUrl);
+
+  // Belt and braces: never start a payment while online payments are off.
+  if (!paidOn && o.total_cents > 0) {
+    await db.rpc("release_order", { p_order_id: o.order_id, p_status: "cancelled", p_reason: "payments_disabled" });
+    return { status: "error", message: "Paid tickets aren't on sale online yet." };
+  }
 
   // Free registration: no payment to verify.
   if (o.total_cents === 0) {

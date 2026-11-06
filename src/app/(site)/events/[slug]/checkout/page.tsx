@@ -33,7 +33,6 @@ async function Checkout({ params, searchParams }: PageProps<"/events/[slug]/chec
       <div className="mt-8"><LinkButton href={back}>Back to the event</LinkButton></div>
     </Container>
   );
-  if (!checkoutEnabled()) return problem("Online registration isn't open yet.");
   const sel = parseSelectionParam(typeof sp.sel === "string" ? sp.sel : null);
   if (!sel) return problem("Please choose your tickets first.");
   const options = await getTicketOptions(event.id);
@@ -42,6 +41,8 @@ async function Checkout({ params, searchParams }: PageProps<"/events/[slug]/chec
     const o = options.find((x) => x.id === s.ticket_type_id);
     if (!o || o.display_state !== "on_sale") return problem("One of your tickets is no longer on sale.");
     if (s.quantity > o.max_purchasable) return problem(`Only ${o.max_purchasable} “${o.name}” can be purchased right now.`);
+    // Free tickets are always available; paid ones only once online payments are switched on.
+    if (o.price_cents > 0 && !checkoutEnabled()) return problem("Paid tickets aren't on sale online yet.");
     lines.push({ ticket_type_id: o.id, name: o.name, unit_price_cents: o.price_cents, quantity: s.quantity, admits_per_unit: o.admits_per_unit });
   }
   if (lines.reduce((a, l) => a + l.quantity * l.admits_per_unit, 0) > event.max_tickets_per_order) return problem("That's more than the per-order limit.");
